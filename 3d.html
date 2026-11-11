@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Bunker & Truck Logistics Comparison</title>
+  <!-- Three.js r128 & OrbitControls : 발표장 오프라인에서도 뜨도록 로컬 우선, 실패 시 CDN -->
+  <script src="assets/vendor/three.min.js"></script>
+  <script>
+    if (!window.THREE) {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+    }
+  </script>
+  <script src="assets/vendor/OrbitControls.js"></script>
+  <script>
+    if (!window.THREE || !window.THREE.OrbitControls) {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #12100c;
+    }
+
+    #canvas-container canvas { display: block; }
+
+    /* 아이콘 크기/색 : Tailwind CDN 없이 자체 처리 */
+    .dock-btn svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+    }
+    .dock-btn svg.hidden { display: none !important; }
+    .ic-a { stroke: #c9c2b4; }
+    .ic-b { stroke: #e0764a; }
+    .ic-w { stroke: #e0b25f; }
+    .ic-t { stroke: #86a9c4; }
+
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Minimal Icon-Only Floating Dock (Zero Text) */
+    .icon-dock {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 9999px;
+      background: rgba(18, 16, 12, 0.78);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(226, 213, 190, 0.20);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.65);
+    }
+
+    .dock-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(38, 33, 26, 0.88);
+      border: 1px solid rgba(150, 136, 116, 0.38);
+      color: #ddd4c6;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .dock-btn:hover {
+      background: rgba(58, 50, 40, 0.96);
+      color: #ffffff;
+      transform: translateY(-2px);
+      border-color: rgba(208, 82, 26, 0.65);
+    }
+
+    .dock-btn.active {
+      background: linear-gradient(135deg, #d0521a 0%, #a83608 100%);
+      color: #fff6ef;
+      border-color: #f0b49a;
+      box-shadow: 0 0 14px rgba(208, 82, 26, 0.45);
+    }
+
+    .dock-divider {
+      width: 1px;
+      height: 24px;
+      background: rgba(226, 213, 190, 0.22);
+      margin: 0 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 100% Full-Screen 3D WebGL Canvas (Zero Text / Zero Panels) -->
+  <div id="canvas-container"></div>
+
+  <!-- Unobtrusive Icon-Only Control Dock (Bottom-Right) -->
+  <div class="icon-dock">
+    <!-- 1. Overview Camera -->
+    <button id="btn-cam-overview" class="dock-btn active" onclick="setCameraView('overview')" aria-label="Overview">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 010 18M12 3a15 15 0 000 18"></path>
+      </svg>
+    </button>
+
+    <!-- 2. Bunker A (Left - Conventional Storage) -->
+    <button id="btn-cam-bunkerA" class="dock-btn" onclick="setCameraView('bunkerA')" aria-label="Bunker A">
+      <svg class="ic-a" fill="none" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M3 21V10a9 9 0 0118 0v11"></path>
+        <path d="M7 21v-6h10v6"></path>
+      </svg>
+    </button>
+
+    <!-- 3. Bunker B (Right - Flat-Pack Pallet & Worktable) -->
+    <button id="btn-cam-bunkerB" class="dock-btn" onclick="setCameraView('bunkerB')" aria-label="Bunker B">
+      <svg class="ic-b" fill="none" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M12 3l9 5-9 5-9-5 9-5z"></path>
+        <path d="M3 13l9 5 9-5"></path>
+        <path d="M3 17l9 5 9-5"></path>
+      </svg>
+    </button>
+
+    <!-- 4. Worktable & Nose-Propeller Drone Close-Up -->
+    <button id="btn-cam-workbench" class="dock-btn" onclick="setCameraView('workbench')" aria-label="Workbench">
+      <svg class="ic-w" fill="none" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M12 2L3 19l9-4 9 4-9-17z"></path>
+      </svg>
+    </button>
+
+    <!-- 5. Military Cargo Trucks Comparison -->
+    <button id="btn-cam-trucks" class="dock-btn" onclick="setCameraView('trucks')" aria-label="Trucks">
+      <svg class="ic-t" fill="none" stroke-width="2" viewBox="0 0 24 24">
+        <rect x="1" y="6" width="14" height="10" rx="1"></rect>
+        <path d="M15 9h4l3 4v3h-7V9z"></path>
+        <circle cx="5.5" cy="17.5" r="2"></circle>
+        <circle cx="18.5" cy="17.5" r="2"></circle>
+      </svg>
+    </button>
+
+    <div class="dock-divider"></div>
+
+    <!-- 6. Cycle Building Transparency (85% Transparent -> 95% Ghost -> 50% Semi) -->
+    <button id="btn-toggle-alpha" class="dock-btn active" onclick="cycleBunkerTransparency()" aria-label="Toggle Transparency">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+    </button>
+
+    <!-- 7. Play / Pause Worktable Folding Animation -->
+    <button id="btn-toggle-anim" class="dock-btn active" onclick="toggleAssemblyAnimation()" aria-label="Play Pause Assembly">
+      <svg id="icon-anim-pause" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+        <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+      </svg>
+      <svg id="icon-anim-play" class="hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polygon points="6 4 20 12 6 20 6 4"></polygon>
+      </svg>
+    </button>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. SCENE, CAMERA, RENDERER & ORBIT CONTROLS
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x12100c);
+    scene.fog = new THREE.FogExp2(0x12100c, 0.0042);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 400);
+    camera.position.set(0, 32, 62);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI / 2 - 0.025;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 140;
+    controls.target.set(0, 3.5, 4);
+
+    /* 좁은 프레임(모바일 슬라이드) : 스크롤과 제스처가 충돌하지 않도록 자동 회전으로 보여준다 */
+    const NARROW = window.innerWidth < 620;
+    if (NARROW) {
+      controls.enableRotate = false;
+      controls.enableZoom = false;
+      controls.enablePan = false;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.55;
+      camera.position.set(0, 40, 78);
+      const dock = document.querySelector('.icon-dock');
+      if (dock) dock.style.display = 'none';
+    }
+
+    // =========================================================================
+    // 2. LIGHTING SETUP
+    // =========================================================================
+    const ambientLight = new THREE.AmbientLight(0xf4ebdd, 0.62);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xefdcc0, 0x2a2318, 0.5);
+    hemiLight.position.set(0, 60, 0);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff4e2, 1.2);
+    sunLight.position.set(35, 58, 42);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 5;
+    sunLight.shadow.camera.far = 160;
+    const shadowBound = 48;
+    sunLight.shadow.camera.left = -shadowBound;
+    sunLight.shadow.camera.right = shadowBound;
+    sunLight.shadow.camera.top = shadowBound;
+    sunLight.shadow.camera.bottom = -shadowBound;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    // Interior Bunker Point Lights
+    const bunkerALight = new THREE.PointLight(0xffedd5, 0.95, 32);
+    bunkerALight.position.set(-19, 8.5, -5);
+    scene.add(bunkerALight);
+
+    const bunkerBLight = new THREE.PointLight(0xfef3c7, 1.15, 35);
+    bunkerBLight.position.set(19, 8.5, -5);
+    scene.add(bunkerBLight);
+
+    // Dedicated Spotlight illuminating the Assembly Worktable in Bunker B
+    const worktableSpot = new THREE.SpotLight(0xfde68a, 1.45, 22, Math.PI / 3.5, 0.35);
+    worktableSpot.position.set(21.5, 8.5, -3.2);
+    worktableSpot.target.position.set(21.5, 1.5, -3.2);
+    scene.add(worktableSpot);
+    scene.add(worktableSpot.target);
+
+    // =========================================================================
+    // 3. PROCEDURAL TEXTURES (ZERO TEXT - PURE VISUAL CORRUGATED & CRATE DETAIL)
+    // =========================================================================
+    function createCardboardTexture(showFoldPattern = true) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+
+      // Kraft paper base tone
+      ctx.fillStyle = '#c69a63';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Subtle E-flute corrugated ribs
+      ctx.fillStyle = 'rgba(130, 86, 38, 0.16)';
+      for (let y = 0; y < 512; y += 6) {
+        ctx.fillRect(0, y, 512, 2);
+      }
+
+      if (showFoldPattern) {
+        // Pure geometric die-cut & crease lines (no text!)
+        ctx.strokeStyle = '#5c3a18';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(18, 18, 476, 476);
+
+        // Delta wing triangle die-cut outline
+        ctx.beginPath();
+        ctx.moveTo(256, 42);
+        ctx.lineTo(470, 445);
+        ctx.lineTo(42, 445);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Dashed crease lines for center fuselage bay & 10-deg wingtip folds
+        ctx.setLineDash([10, 8]);
+        ctx.strokeStyle = '#8b261d';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        // Center fuselage fold lines
+        ctx.moveTo(224, 90);
+        ctx.lineTo(224, 445);
+        ctx.moveTo(288, 90);
+        ctx.lineTo(288, 445);
+        // Winglet fold lines
+        ctx.moveTo(106, 315);
+        ctx.lineTo(106, 445);
+        ctx.moveTo(406, 315);
+        ctx.lineTo(406, 445);
+        // Rear elevon hinge crease line
+        ctx.moveTo(58, 405);
+        ctx.lineTo(454, 405);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    function createMilitaryCrateTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#3b4735';
+      ctx.fillRect(0, 0, 256, 256);
+
+      ctx.strokeStyle = '#232b1e';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(8, 8, 240, 240);
+
+      // Structural X-bracing ribs (no text)
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(12, 12);
+      ctx.lineTo(244, 244);
+      ctx.moveTo(244, 12);
+      ctx.lineTo(12, 244);
+      ctx.stroke();
+
+      // Corner metal brackets
+      ctx.fillStyle = '#1e241b';
+      const bSize = 28;
+      ctx.fillRect(4, 4, bSize, bSize);
+      ctx.fillRect(252 - bSize, 4, bSize, bSize);
+      ctx.fillRect(4, 252 - bSize, bSize, bSize);
+      ctx.fillRect(252 - bSize, 252 - bSize, bSize, bSize);
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    const cardboardPatternTex = createCardboardTexture(true);
+    const cardboardPlainTex = createCardboardTexture(false);
+    const milCrateTex = createMilitaryCrateTexture();
+
+    // Shared Materials
+    const matConcreteFloor = new THREE.MeshStandardMaterial({ color: 0x283240, roughness: 0.9, metalness: 0.05 });
+    const matDarkSteel = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.75 });
+    const matRackOrange = new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.5, metalness: 0.35 });
+    const matMilCrate = new THREE.MeshStandardMaterial({ map: milCrateTex, roughness: 0.72, metalness: 0.15 });
+    const matOliveDrab = new THREE.MeshStandardMaterial({ color: 0x3f4d34, roughness: 0.65, metalness: 0.2 });
+    const matOliveDark = new THREE.MeshStandardMaterial({ color: 0x283121, roughness: 0.7, metalness: 0.2 });
+    const matWoodPallet = new THREE.MeshStandardMaterial({ color: 0xa47549, roughness: 0.85, metalness: 0.05 });
+    const matCardboardCut = new THREE.MeshStandardMaterial({ map: cardboardPatternTex, roughness: 0.78, metalness: 0.05 });
+    const matCardboardPlain = new THREE.MeshStandardMaterial({ map: cardboardPlainTex, roughness: 0.8, metalness: 0.05 });
+    const matYellow3DPrint = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.32, metalness: 0.15 });
+    const matSpeedyBeePCB = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.6 });
+    const matRedEsc = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4, metalness: 0.3 });
+    const matBlueBattery = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.2 });
+    const matSilverAluminum = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.9 });
+    const matBrushlessMotor = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.25, metalness: 0.85 });
+    const matPropellerDark = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.35, metalness: 0.4 });
+
+    // =========================================================================
+    // 4. BASE TARMAC ENVIRONMENT & ROADWAY
+    // =========================================================================
+    function buildEnvironment() {
+      const envGroup = new THREE.Group();
+
+      // Surrounding Ground Plane
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(260, 260),
+        new THREE.MeshStandardMaterial({ color: 0x090d14, roughness: 0.95 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      envGroup.add(ground);
+
+      // Military Apron Pad
+      const apron = new THREE.Mesh(
+        new THREE.BoxGeometry(86, 0.2, 68),
+        new THREE.MeshStandardMaterial({ color: 0x161f2c, roughness: 0.88 })
+      );
+      apron.position.set(0, 0.1, 4);
+      apron.receiveShadow = true;
+      envGroup.add(apron);
+
+      // Center Dividing Line
+      const divider = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.35, 66),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.65 })
+      );
+      divider.rotation.x = -Math.PI / 2;
+      divider.position.set(0, 0.22, 4);
+      envGroup.add(divider);
+
+      // Asphalt Road in front of Bunkers for the 5-Ton Military Trucks
+      const road = new THREE.Mesh(
+        new THREE.PlaneGeometry(84, 15.5),
+        new THREE.MeshStandardMaterial({ color: 0x111824, roughness: 0.92 })
+      );
+      road.rotation.x = -Math.PI / 2;
+      road.position.set(0, 0.21, 20.5);
+      road.receiveShadow = true;
+      envGroup.add(road);
+
+      // Dashed Road Centerline
+      for (let x = -38; x <= 38; x += 5) {
+        const dash = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.5, 0.22),
+          new THREE.MeshBasicMaterial({ color: 0xeab308, transparent: true, opacity: 0.75 })
+        );
+        dash.rotation.x = -Math.PI / 2;
+        dash.position.set(x, 0.23, 20.5);
+        envGroup.add(dash);
+      }
+
+      // Truck Loading Bay Markings (Red Left vs Green Right)
+      [-19, 19].forEach((bx, idx) => {
+        const bayColor = idx === 0 ? 0xef4444 : 0x10b981;
+        const padBorder = new THREE.Mesh(
+          new THREE.RingGeometry(7.2, 7.5, 4),
+          new THREE.MeshBasicMaterial({ color: bayColor, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+        );
+        padBorder.rotation.x = -Math.PI / 2;
+        padBorder.rotation.z = Math.PI / 4;
+        padBorder.scale.set(1.38, 0.65, 1);
+        padBorder.position.set(bx, 0.23, 20.5);
+        envGroup.add(padBorder);
+      });
+
+      scene.add(envGroup);
+    }
+    buildEnvironment();
+
+    // =========================================================================
+    // 5. SEAMLESS EXTRUDED ARCH BUNKER BUILDER (DEFAULT 85% TRANSPARENCY!)
+    // =========================================================================
+    // Mathematically unified cross-section using THREE.Shape + THREE.ExtrudeGeometry
+    // so vertical walls and arch roof form a single aligned structure with zero rotation bugs.
+    const bunkerShellMaterials = [];
+    const bunkerEdgeMaterials = [];
+    const interactiveBunkerMeshes = [];
+
+    function createMilitaryBunker(centerX, centerZ, accentHex, isBunkerB = false) {
+      const bunkerGroup = new THREE.Group();
+      bunkerGroup.position.set(centerX, 0, centerZ);
+
+      const outerHalfW = 13.0; // Total width = 26m
+      const innerHalfW = 12.15; // Wall thickness = 0.85m
+      const wallH = 4.8;       // Vertical wall height before arch begins
+      const archOuterR = 13.0;
+      const archInnerR = 12.15;
+      const archCenterY = wallH;
+      const archScaleY = 0.42; // Flattened military hardened aircraft shelter arch profile
+      const depth = 24.0;      // Total length along Z = 24m
+      const halfDepth = depth / 2;
+
+      // 1. Concrete Floor Slab (Solid so shadows land crisply)
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(outerHalfW * 2, 0.36, depth), matConcreteFloor);
+      floor.position.set(0, 0.18, 0);
+      floor.receiveShadow = true;
+      bunkerGroup.add(floor);
+
+      // Subtle emerald floor highlight in Bunker B showing 82%+ free open space
+      if (isBunkerB) {
+        const openFloorHighlight = new THREE.Mesh(
+          new THREE.PlaneGeometry(innerHalfW * 1.92, depth - 1.6),
+          new THREE.MeshStandardMaterial({
+            color: 0x065f46,
+            roughness: 0.9,
+            transparent: true,
+            opacity: 0.28
+          })
+        );
+        openFloorHighlight.rotation.x = -Math.PI / 2;
+        openFloorHighlight.position.set(0, 0.37, 0);
+        bunkerGroup.add(openFloorHighlight);
+      }
+
+      // Shared 85% Transparent Building Material (Opacity = 0.15)
+      const shellMat = new THREE.MeshPhysicalMaterial({
+        color: 0x94a3b8,
+        roughness: 0.35,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.15,       // 85% Transparency as requested!
+        depthWrite: false,   // Prevents z-buffer occlusion of interior objects
+        side: THREE.DoubleSide
+      });
+      bunkerShellMaterials.push(shellMat);
+
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: accentHex,
+        transparent: true,
+        opacity: 0.34
+      });
+      bunkerEdgeMaterials.push(edgeMat);
+
+      // 2. Unified Side Walls + Arch Roof Cross-Section Shape in X-Y Plane
+      const archSegments = 44;
+      const shellShape = new THREE.Shape();
+
+      // Start at bottom-right outer wall corner
+      shellShape.moveTo(outerHalfW, 0.36);
+      shellShape.lineTo(outerHalfW, wallH);
+
+      // Outer arch curve from 0 to PI
+      for (let i = 1; i <= archSegments; i++) {
+        const theta = (i / archSegments) * Math.PI;
+        const x = Math.cos(theta) * archOuterR;
+        const y = archCenterY + Math.sin(theta) * (archOuterR * archScaleY);
+        shellShape.lineTo(x, y);
+      }
+
+      // Down left outer wall to floor, then step inward to inner left wall
+      shellShape.lineTo(-outerHalfW, 0.36);
+      shellShape.lineTo(-innerHalfW, 0.36);
+      shellShape.lineTo(-innerHalfW, wallH);
+
+      // Inner arch curve from PI back to 0
+      for (let i = archSegments - 1; i >= 0; i--) {
+        const theta = (i / archSegments) * Math.PI;
+        const x = Math.cos(theta) * archInnerR;
+        const y = archCenterY + Math.sin(theta) * (archInnerR * archScaleY);
+        shellShape.lineTo(x, y);
+      }
+
+      shellShape.lineTo(innerHalfW, 0.36);
+      shellShape.closePath();
+
+      // Extrude along Z-axis for the main bunker barrel vault + walls
+      const shellGeo = new THREE.ExtrudeGeometry(shellShape, {
+        depth: depth,
+        bevelEnabled: false,
+        curveSegments: 32
+      });
+      // Center along Z from -halfDepth to +halfDepth
+      shellGeo.translate(0, 0, -halfDepth);
+
+      const shellMesh = new THREE.Mesh(shellGeo, shellMat);
+      shellMesh.renderOrder = 2;
+      bunkerGroup.add(shellMesh);
+      interactiveBunkerMeshes.push(shellMesh);
+
+      // Clean architectural edge lines for the main shell
+      const shellEdges = new THREE.LineSegments(new THREE.EdgesGeometry(shellGeo, 22), edgeMat);
+      bunkerGroup.add(shellEdges);
+
+      // 3. Structural Arch Ribs along Z (Using exact same cross-section profile)
+      const ribGeo = new THREE.ExtrudeGeometry(shellShape, {
+        depth: 0.35,
+        bevelEnabled: false
+      });
+      for (let z = -halfDepth + 3.5; z <= halfDepth - 3.5; z += 4.25) {
+        const ribMesh = new THREE.Mesh(ribGeo, shellMat);
+        ribMesh.position.z = z - 0.175;
+        ribMesh.renderOrder = 2;
+        bunkerGroup.add(ribMesh);
+
+        const ribLine = new THREE.LineSegments(new THREE.EdgesGeometry(ribGeo, 25), edgeMat);
+        ribLine.position.z = z - 0.175;
+        bunkerGroup.add(ribLine);
+      }
+
+      // 4. Rear Enclosed Arch Wall (Matches inner arch profile seamlessly)
+      const rearWallShape = new THREE.Shape();
+      rearWallShape.moveTo(innerHalfW, 0.36);
+      rearWallShape.lineTo(innerHalfW, wallH);
+      for (let i = 1; i <= archSegments; i++) {
+        const theta = (i / archSegments) * Math.PI;
+        const x = Math.cos(theta) * archInnerR;
+        const y = archCenterY + Math.sin(theta) * (archInnerR * archScaleY);
+        rearWallShape.lineTo(x, y);
+      }
+      rearWallShape.lineTo(-innerHalfW, 0.36);
+      rearWallShape.closePath();
+
+      const rearWallGeo = new THREE.ExtrudeGeometry(rearWallShape, { depth: 0.6, bevelEnabled: false });
+      rearWallGeo.translate(0, 0, -halfDepth);
+      const rearWallMesh = new THREE.Mesh(rearWallGeo, shellMat);
+      rearWallMesh.renderOrder = 2;
+      bunkerGroup.add(rearWallMesh);
+
+      const rearWallEdges = new THREE.LineSegments(new THREE.EdgesGeometry(rearWallGeo, 20), edgeMat);
+      bunkerGroup.add(rearWallEdges);
+
+      // 5. Front Portal Wall with Wide Rectangular Hangar Doorway Cutout
+      const frontPortalShape = new THREE.Shape();
+      frontPortalShape.moveTo(innerHalfW, 0.36);
+      frontPortalShape.lineTo(innerHalfW, wallH);
+      for (let i = 1; i <= archSegments; i++) {
+        const theta = (i / archSegments) * Math.PI;
+        const x = Math.cos(theta) * archInnerR;
+        const y = archCenterY + Math.sin(theta) * (archInnerR * archScaleY);
+        frontPortalShape.lineTo(x, y);
+      }
+      frontPortalShape.lineTo(-innerHalfW, 0.36);
+      // Cut out wide central hangar doorway (width = 17m, height = 5.0m)
+      const doorHalfW = 8.5;
+      const doorH = 5.0;
+      frontPortalShape.lineTo(-doorHalfW, 0.36);
+      frontPortalShape.lineTo(-doorHalfW, doorH);
+      frontPortalShape.lineTo(doorHalfW, doorH);
+      frontPortalShape.lineTo(doorHalfW, 0.36);
+      frontPortalShape.closePath();
+
+      const frontPortalGeo = new THREE.ExtrudeGeometry(frontPortalShape, { depth: 0.6, bevelEnabled: false });
+      frontPortalGeo.translate(0, 0, halfDepth - 0.6);
+      const frontPortalMesh = new THREE.Mesh(frontPortalGeo, shellMat);
+      frontPortalMesh.renderOrder = 2;
+      bunkerGroup.add(frontPortalMesh);
+
+      const frontPortalEdges = new THREE.LineSegments(new THREE.EdgesGeometry(frontPortalGeo, 20), edgeMat);
+      bunkerGroup.add(frontPortalEdges);
+
+      scene.add(bunkerGroup);
+      return bunkerGroup;
+    }
+
+    const bunkerAGroup = createMilitaryBunker(-19, -5, 0x8c8578, false);
+    const bunkerBGroup = createMilitaryBunker(19, -5, 0xd0521a, true);
+
+    // =========================================================================
+    // 6. OUR CAPSTONE CARDBOARD DELTA-WING DRONE (FRONT NOSE PROPELLER!)
+    // =========================================================================
+    // Builds a complete or animated cardboard delta-wing drone with:
+    // - Pointed front nose tip (+Z or -Z; here -Z is forward nose tip)
+    // - Yellow 3D-printed front motor mount (with 2-degree side-thrust offset)
+    // - T-Motor AT2321 brushless motor + 40mm silver cone spinner + 12-inch front propeller
+    // - Swept E-flute cardboard delta wing + vertical wingtip winglets
+    // - Rear trailing-edge elevons + dual ES09MD servos
+    // - Center bay SpeedyBee F405 WING FC, Red 50A ESC, Blue 4S LiPo, GPS & Pitot tube
+    const spinningPropellers = [];
+
+    function createCardboardDeltaDrone(isAnimatedRig = false) {
+      const droneRoot = new THREE.Group();
+
+      // Center Cardboard Belly Plate (Length along Z: nose at z = -1.15, tail at z = +1.05)
+      const centerBelly = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.035, 2.2), matCardboardCut);
+      centerBelly.castShadow = true;
+      droneRoot.add(centerBelly);
+
+      // Left & Right Folding Fuselage Side Walls
+      const fuseWallGeo = new THREE.BoxGeometry(0.035, 0.28, 2.05);
+      const wallLeftPivot = new THREE.Group();
+      wallLeftPivot.position.set(-0.26, 0.02, 0.02);
+      const wallLeftMesh = new THREE.Mesh(fuseWallGeo, matCardboardPlain);
+      wallLeftMesh.position.set(0, 0.14, 0);
+      wallLeftPivot.add(wallLeftMesh);
+      droneRoot.add(wallLeftPivot);
+
+      const wallRightPivot = new THREE.Group();
+      wallRightPivot.position.set(0.26, 0.02, 0.02);
+      const wallRightMesh = new THREE.Mesh(fuseWallGeo, matCardboardPlain);
+      wallRightMesh.position.set(0, 0.14, 0);
+      wallRightPivot.add(wallRightMesh);
+      droneRoot.add(wallRightPivot);
+
+      // Swept Triangular Delta Wing Panels (Narrow pointed nose at z = -1.05, wide trailing edge at z = +1.05)
+      // In Shape coordinates before rotateX(PI/2): y maps to +Z.
+      // So nose is at y = -1.05, rear trailing edge is at y = +1.05!
+      const wingShapeR = new THREE.Shape();
+      wingShapeR.moveTo(0, -1.05);     // Pointed Front Nose apex
+      wingShapeR.lineTo(1.48, 0.72);   // Outer Wingtip Leading Edge
+      wingShapeR.lineTo(1.48, 1.05);   // Outer Wingtip Trailing Edge
+      wingShapeR.lineTo(0, 1.05);      // Inner Root Trailing Edge
+      wingShapeR.closePath();
+
+      const wingExtrude = { depth: 0.035, bevelEnabled: false };
+      const rightWingGeo = new THREE.ExtrudeGeometry(wingShapeR, wingExtrude);
+      rightWingGeo.rotateX(Math.PI / 2);
+
+      const rightWingPivot = new THREE.Group();
+      rightWingPivot.position.set(0.28, 0.035, 0);
+      const rightWingMesh = new THREE.Mesh(rightWingGeo, matCardboardCut);
+      rightWingMesh.castShadow = true;
+      rightWingPivot.add(rightWingMesh);
+
+      // Right Wingtip Vertical Winglet (10-deg / vertical stabilizer fin)
+      const wingletGeo = new THREE.BoxGeometry(0.035, 0.38, 0.55);
+      const rightWingletPivot = new THREE.Group();
+      rightWingletPivot.position.set(1.46, 0, 0.78);
+      const rightWingletMesh = new THREE.Mesh(wingletGeo, matCardboardPlain);
+      rightWingletMesh.position.set(0, 0.19, 0);
+      rightWingletPivot.add(rightWingletMesh);
+      rightWingPivot.add(rightWingletPivot);
+
+      // Right Rear Elevon Control Surface + Servo & Pushrod at Trailing Edge (+Z)
+      const elevonGeo = new THREE.BoxGeometry(1.12, 0.025, 0.18);
+      const rightElevon = new THREE.Mesh(elevonGeo, matCardboardPlain);
+      rightElevon.position.set(0.76, -0.01, 1.15);
+      rightElevon.rotation.x = 0.12;
+      rightWingPivot.add(rightElevon);
+
+      const rightServo = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.12), matDarkSteel);
+      rightServo.position.set(0.68, 0.06, 0.88);
+      rightWingPivot.add(rightServo);
+
+      droneRoot.add(rightWingPivot);
+
+      // Left Swept Delta Wing Panel
+      const wingShapeL = new THREE.Shape();
+      wingShapeL.moveTo(0, -1.05);     // Pointed Front Nose apex
+      wingShapeL.lineTo(-1.48, 0.72);  // Outer Wingtip Leading Edge
+      wingShapeL.lineTo(-1.48, 1.05);  // Outer Wingtip Trailing Edge
+      wingShapeL.lineTo(0, 1.05);      // Inner Root Trailing Edge
+      wingShapeL.closePath();
+
+      const leftWingGeo = new THREE.ExtrudeGeometry(wingShapeL, wingExtrude);
+      leftWingGeo.rotateX(Math.PI / 2);
+
+      const leftWingPivot = new THREE.Group();
+      leftWingPivot.position.set(-0.28, 0.035, 0);
+      const leftWingMesh = new THREE.Mesh(leftWingGeo, matCardboardCut);
+      leftWingMesh.castShadow = true;
+      leftWingPivot.add(leftWingMesh);
+
+      const leftWingletPivot = new THREE.Group();
+      leftWingletPivot.position.set(-1.46, 0, 0.78);
+      const leftWingletMesh = new THREE.Mesh(wingletGeo, matCardboardPlain);
+      leftWingletMesh.position.set(0, 0.19, 0);
+      leftWingletPivot.add(leftWingletMesh);
+      leftWingPivot.add(leftWingletPivot);
+
+      const leftElevon = new THREE.Mesh(elevonGeo, matCardboardPlain);
+      leftElevon.position.set(-0.76, -0.01, 1.15);
+      leftElevon.rotation.x = -0.12;
+      leftWingPivot.add(leftElevon);
+
+      const leftServo = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.12), matDarkSteel);
+      leftServo.position.set(-0.68, 0.06, 0.88);
+      leftWingPivot.add(leftServo);
+
+      droneRoot.add(leftWingPivot);
+
+      // =====================================================================
+      // FRONT NOSE-MOUNTED PROPULSION & MODULAR AVIONICS BAY (TRACTOR CONFIG)
+      // =====================================================================
+      const avionicsGroup = new THREE.Group();
+
+      // 1. FRONT NOSE 3D-Printed Motor Mount (at pointed front nose z = -1.12, with 2-deg side-thrust!)
+      const noseMountGroup = new THREE.Group();
+      noseMountGroup.position.set(0, 0.15, -1.10);
+      noseMountGroup.rotation.y = -0.035; // 2-degree right side-thrust offset to counter torque!
+
+      const mountBlock = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.24, 0.20), matYellow3DPrint);
+      mountBlock.castShadow = true;
+      noseMountGroup.add(mountBlock);
+
+      // 2. T-Motor AT2321 1250KV Brushless Motor mounted on the front face of the nose mount
+      const motorBell = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.115, 0.115, 0.18, 20),
+        matBrushlessMotor
+      );
+      motorBell.rotation.x = Math.PI / 2;
+      motorBell.position.set(0, 0, -0.18);
+      noseMountGroup.add(motorBell);
+
+      // 3. Rotating Front Propeller + 40mm Aluminum Cone Spinner at the very tip of the nose!
+      const propSpinnerHub = new THREE.Group();
+      propSpinnerHub.position.set(0, 0, -0.29);
+
+      // 12-inch 2-Blade Tractor Propeller
+      const blade1 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.085, 0.022), matPropellerDark);
+      blade1.rotation.z = 0.08;
+      propSpinnerHub.add(blade1);
+
+      // Silver 40mm Aluminum Cone Spinner pointing forward (-Z)
+      const coneSpinner = new THREE.Mesh(
+        new THREE.ConeGeometry(0.085, 0.18, 20),
+        matSilverAluminum
+      );
+      coneSpinner.rotation.x = -Math.PI / 2; // Pointing forward along -Z
+      coneSpinner.position.set(0, 0, -0.09);
+      propSpinnerHub.add(coneSpinner);
+
+      noseMountGroup.add(propSpinnerHub);
+      spinningPropellers.push(propSpinnerHub);
+      avionicsGroup.add(noseMountGroup);
+
+      // 4. Forward CG Battery Bay: 4S 3400mAh LiPo Battery Pack right behind the nose motor
+      const batteryPack = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.15, 0.46), matBlueBattery);
+      batteryPack.position.set(0, 0.12, -0.58);
+      avionicsGroup.add(batteryPack);
+
+      // 5. Hobbywing Skywalker 50A ESC (Red module beside battery)
+      const escModule = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.30), matRedEsc);
+      escModule.position.set(0.16, 0.09, -0.12);
+      avionicsGroup.add(escModule);
+
+      // 6. SpeedyBee F405 WING Flight Controller Stack (Black PCB + Signature Yellow Top)
+      const fcPcb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.07, 0.28), matSpeedyBeePCB);
+      fcPcb.position.set(-0.04, 0.09, 0.05);
+      avionicsGroup.add(fcPcb);
+
+      const fcYellowTop = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.22), matYellow3DPrint);
+      fcYellowTop.position.set(-0.04, 0.14, 0.05);
+      avionicsGroup.add(fcYellowTop);
+
+      // 7. MicoAir M10G-5883 GPS Module + 915MHz SiK Telemetry Antenna
+      const gpsModule = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15, 0.05, 0.15),
+        new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4 })
+      );
+      gpsModule.position.set(0, 0.10, 0.42);
+      avionicsGroup.add(gpsModule);
+
+      const sikAntenna = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.28, 8), matPropellerDark);
+      sikAntenna.position.set(-0.14, 0.22, 0.38);
+      avionicsGroup.add(sikAntenna);
+
+      // 8. Digital Pitot Tube (MS4525DO) protruding forward from the right leading edge
+      const pitotTube = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.32, 8), matSilverAluminum);
+      pitotTube.rotation.x = Math.PI / 2;
+      pitotTube.position.set(0.55, 0.06, -0.52);
+      avionicsGroup.add(pitotTube);
+
+      droneRoot.add(avionicsGroup);
+
+      if (isAnimatedRig) {
+        return {
+          root: droneRoot,
+          wallLeftPivot,
+          wallRightPivot,
+          leftWingPivot,
+          rightWingPivot,
+          leftWingletPivot,
+          rightWingletPivot,
+          avionicsGroup,
+          propSpinnerHub
+        };
+      }
+
+      return droneRoot;
+    }
+
+    // =========================================================================
+    // 7. BUNKER A INTERIOR: CONVENTIONAL CRAMPED STORAGE (96% FULL)
+    // =========================================================================
+    function createConventionalFixedWingDrone() {
+      const convGroup = new THREE.Group();
+
+      // Cylindrical fiberglass fuselage
+      const fuselage = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.17, 0.11, 2.3, 14),
+        new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.4 })
+      );
+      fuselage.rotation.x = Math.PI / 2;
+      convGroup.add(fuselage);
+
+      // Wide 3.5m non-folding fixed wingspan (takes up huge rack volume)
+      const mainWing = new THREE.Mesh(
+        new THREE.BoxGeometry(3.5, 0.06, 0.55),
+        new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 })
+      );
+      mainWing.position.set(0, 0.08, -0.15);
+      convGroup.add(mainWing);
+
+      // Rear tailplane
+      const hTail = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.04, 0.32), matSilverAluminum);
+      hTail.position.set(0, 0.1, 0.95);
+      convGroup.add(hTail);
+
+      const vTail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.48, 0.36), matRedEsc);
+      vTail.position.set(0, 0.32, 0.95);
+      convGroup.add(vTail);
+
+      return convGroup;
+    }
+
+    function populateBunkerA() {
+      const rackX = [-8.4, -2.8, 2.8, 8.4];
+      const rackZ = [-7.5, -1.5, 4.5];
+
+      rackX.forEach((rx) => {
+        rackZ.forEach((rz) => {
+          const rack = new THREE.Group();
+          rack.position.set(rx, 0.36, rz);
+
+          // 4 Upright Steel Posts
+          const postGeo = new THREE.BoxGeometry(0.14, 4.8, 0.14);
+          [
+            [-1.9, -1.8],
+            [1.9, -1.8],
+            [-1.9, 1.8],
+            [1.9, 1.8]
+          ].forEach(([px, pz]) => {
+            const post = new THREE.Mesh(postGeo, matDarkSteel);
+            post.position.set(px, 2.4, pz);
+            rack.add(post);
+          });
+
+          // 3 Shelf Levels
+          [0.2, 2.05, 3.85].forEach((sy, levelIdx) => {
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.12, 3.8), matRackOrange);
+            beam.position.set(0, sy, 0);
+            rack.add(beam);
+
+            if (levelIdx < 2) {
+              // Giant Bulky Hard Case
+              const crate = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.48, 3.3), matMilCrate);
+              crate.position.set(0, sy + 0.8, 0);
+              crate.castShadow = true;
+              crate.receiveShadow = true;
+              rack.add(crate);
+            } else {
+              // Top shelf: Pre-assembled wide-wingspan fixed-wing drone
+              const convDrone = createConventionalFixedWingDrone();
+              convDrone.position.set(0, sy + 0.32, 0);
+              rack.add(convDrone);
+            }
+          });
+
+          bunkerAGroup.add(rack);
+        });
+      });
+    }
+    populateBunkerA();
+
+    // =========================================================================
+    // 8. BUNKER B INTERIOR: FLAT-PACK PALLETS, WORKTABLE & ELECTRONICS BOXES
+    // =========================================================================
+    function createFlatPackPallet(sheetLayers = 22) {
+      const palletGroup = new THREE.Group();
+      const pW = 2.6;
+      const pD = 2.2;
+
+      // Wooden Pallet Stringers
+      [-1.0, 0, 1.0].forEach((rx) => {
+        const runner = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, pD), matWoodPallet);
+        runner.position.set(rx, 0.11, 0);
+        runner.castShadow = true;
+        palletGroup.add(runner);
+      });
+
+      // Top Deckboards
+      for (let sz = -0.95; sz <= 0.95; sz += 0.38) {
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(pW, 0.06, 0.26), matWoodPallet);
+        slat.position.set(0, 0.25, sz);
+        slat.castShadow = true;
+        palletGroup.add(slat);
+      }
+
+      // High-Density Stack of Flat-Pack Die-Cut Kraft Cardboard Sheets
+      const stackH = sheetLayers * 0.085;
+      const stackMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(pW - 0.2, stackH, pD - 0.2),
+        matCardboardPlain
+      );
+      stackMesh.position.set(0, 0.28 + stackH / 2, 0);
+      stackMesh.castShadow = true;
+      stackMesh.receiveShadow = true;
+      palletGroup.add(stackMesh);
+
+      // Top Die-Cut Sheet showing Delta-Wing Crease Pattern
+      const topSheet = new THREE.Mesh(
+        new THREE.BoxGeometry(pW - 0.2, 0.04, pD - 0.2),
+        matCardboardCut
+      );
+      topSheet.position.set(0, 0.28 + stackH + 0.02, 0);
+      palletGroup.add(topSheet);
+
+      // Yellow Strapping Bands
+      [-0.65, 0.65].forEach((bx) => {
+        const strap = new THREE.Mesh(
+          new THREE.BoxGeometry(0.06, stackH + 0.14, pD - 0.14),
+          matYellow3DPrint
+        );
+        strap.position.set(bx, 0.24 + stackH / 2, 0);
+        palletGroup.add(strap);
+      });
+
+      return palletGroup;
+    }
+
+    // Small Tactical Electronics Organizer Box (Holds SpeedyBee FC, Motors, ESCs, 4S LiPo, Spare Front Props)
+    function createSmallElectronicsBox(isOpen = true) {
+      const boxGroup = new THREE.Group();
+
+      const caseBase = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.36, 0.88), matOliveDark);
+      caseBase.position.set(0, 0.18, 0);
+      caseBase.castShadow = true;
+      boxGroup.add(caseBase);
+
+      const foamInsert = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.06, 0.78),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 })
+      );
+      foamInsert.position.set(0, 0.35, 0);
+      boxGroup.add(foamInsert);
+
+      if (isOpen) {
+        // Open Lid hinged at the back
+        const lid = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.88), matOliveDrab);
+        lid.position.set(0, 0.68, -0.54);
+        lid.rotation.x = -Math.PI / 2.6;
+        boxGroup.add(lid);
+
+        // 1. SpeedyBee F405 WING Flight Controller (Black PCB + Yellow Heatsink)
+        const fcBoard = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.06, 0.22), matSpeedyBeePCB);
+        fcBoard.position.set(-0.34, 0.40, -0.16);
+        boxGroup.add(fcBoard);
+
+        const fcTop = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.03, 0.16), matYellow3DPrint);
+        fcTop.position.set(-0.34, 0.44, -0.16);
+        boxGroup.add(fcTop);
+
+        // 2. T-Motor AT2321 Brushless Motors + Silver Cone Spinners
+        [-0.02, 0.18].forEach((mx) => {
+          const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.14, 16), matBrushlessMotor);
+          motor.position.set(mx, 0.42, -0.16);
+          boxGroup.add(motor);
+
+          const spinner = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 16), matSilverAluminum);
+          spinner.position.set(mx, 0.52, -0.16);
+          boxGroup.add(spinner);
+        });
+
+        // 3. Skywalker 50A ESC (Red)
+        const esc = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.14), matRedEsc);
+        esc.position.set(0.40, 0.40, -0.16);
+        boxGroup.add(esc);
+
+        // 4. Blue 4S LiPo Battery Packs
+        const battery = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.11, 0.20), matBlueBattery);
+        battery.position.set(-0.26, 0.43, 0.18);
+        boxGroup.add(battery);
+
+        // 5. Spare 12-inch Front Propellers & Yellow 3D-Printed Nose Mounts
+        const spareProp = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.03, 0.06), matPropellerDark);
+        spareProp.position.set(0.24, 0.40, 0.22);
+        spareProp.rotation.y = 0.25;
+        boxGroup.add(spareProp);
+
+        const spareMount = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.12), matYellow3DPrint);
+        spareMount.position.set(0.42, 0.42, 0.08);
+        boxGroup.add(spareMount);
+      } else {
+        // Closed Lid with Yellow Latches
+        const closedLid = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.09, 0.90), matOliveDrab);
+        closedLid.position.set(0, 0.40, 0);
+        boxGroup.add(closedLid);
+
+        [-0.36, 0.36].forEach((lx) => {
+          const latch = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.13, 0.05), matYellow3DPrint);
+          latch.position.set(lx, 0.36, 0.45);
+          boxGroup.add(latch);
+        });
+      }
+
+      return boxGroup;
+    }
+
+    let animatedWorktableDrone = null;
+
+    function populateBunkerB() {
+      // 1. Rear-Left Corner: 4 Wooden Pallets Stacked with Flat-Pack Cardboard Sheets (240+ Airframes)
+      const palletCoords = [
+        [-8.5, -8.2],
+        [-5.2, -8.2],
+        [-8.5, -5.0],
+        [-5.2, -5.0]
+      ];
+      palletCoords.forEach(([px, pz], idx) => {
+        const pallet = createFlatPackPallet(idx === 3 ? 16 : 24);
+        pallet.position.set(px, 0.36, pz);
+        bunkerBGroup.add(pallet);
+      });
+
+      // 2. Compact Shelving Rack holding Small Electronics Boxes next to Pallets
+      const avionicsRack = new THREE.Group();
+      avionicsRack.position.set(-1.2, 0.36, -8.2);
+      const postGeo = new THREE.BoxGeometry(0.12, 3.6, 0.12);
+      [[-1.6, -0.7], [1.6, -0.7], [-1.6, 0.7], [1.6, 0.7]].forEach(([px, pz]) => {
+        const post = new THREE.Mesh(postGeo, matDarkSteel);
+        post.position.set(px, 1.8, pz);
+        avionicsRack.add(post);
+      });
+      [0.2, 1.3, 2.4].forEach((sy, sIdx) => {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.08, 1.6), matDarkSteel);
+        shelf.position.set(0, sy, 0);
+        avionicsRack.add(shelf);
+        [-0.85, 0.85].forEach((bx, bIdx) => {
+          const eBox = createSmallElectronicsBox(sIdx === 2 && bIdx === 0);
+          eBox.position.set(bx, sy + 0.04, 0);
+          avionicsRack.add(eBox);
+        });
+      });
+      bunkerBGroup.add(avionicsRack);
+
+      // 3. Ready-to-Deploy Nose-Propeller Cardboard Delta-Wing Drones on a Mobile Rack
+      const readyRack = new THREE.Group();
+      readyRack.position.set(7.2, 0.36, -7.2);
+      [0.4, 1.6, 2.8].forEach((ry) => {
+        const cradle = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.06, 2.4), matDarkSteel);
+        cradle.position.set(0, ry, 0);
+        readyRack.add(cradle);
+
+        const completedDrone = createCardboardDeltaDrone(false);
+        completedDrone.position.set(0, ry + 0.05, 0);
+        readyRack.add(completedDrone);
+      });
+      bunkerBGroup.add(readyRack);
+
+      // 4. ASSEMBLY WORKTABLE (Front-Right of Bunker B)
+      const worktableGroup = new THREE.Group();
+      worktableGroup.position.set(2.4, 0.36, 1.6);
+
+      const tableW = 6.6;
+      const tableD = 3.5;
+      const tableH = 1.45;
+
+      // Green Self-Healing Cutting Mat Tabletop
+      const tableTop = new THREE.Mesh(
+        new THREE.BoxGeometry(tableW, 0.14, tableD),
+        new THREE.MeshStandardMaterial({ color: 0x1e3a2f, roughness: 0.65 })
+      );
+      tableTop.position.set(0, tableH, 0);
+      tableTop.castShadow = true;
+      tableTop.receiveShadow = true;
+      worktableGroup.add(tableTop);
+
+      // Steel Table Legs
+      const legGeo = new THREE.BoxGeometry(0.18, tableH, 0.18);
+      [
+        [-tableW / 2 + 0.25, -tableD / 2 + 0.25],
+        [tableW / 2 - 0.25, -tableD / 2 + 0.25],
+        [-tableW / 2 + 0.25, tableD / 2 - 0.25],
+        [tableW / 2 - 0.25, tableD / 2 - 0.25]
+      ].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(legGeo, matDarkSteel);
+        leg.position.set(lx, tableH / 2, lz);
+        worktableGroup.add(leg);
+      });
+
+      // Unfolded Flat Cardboard Sheet Stack on the left edge of the Worktable
+      const flatSheetStack = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 1.9), matCardboardCut);
+      flatSheetStack.position.set(-2.45, tableH + 0.11, -0.2);
+      worktableGroup.add(flatSheetStack);
+
+      // Open Small Electronics Box on the right side of the Worktable
+      const openElecBox = createSmallElectronicsBox(true);
+      openElecBox.position.set(2.15, tableH + 0.07, -0.45);
+      openElecBox.rotation.y = -0.35;
+      worktableGroup.add(openElecBox);
+
+      // Second Small Electronics Box beside it
+      const closedElecBox = createSmallElectronicsBox(false);
+      closedElecBox.position.set(2.25, tableH + 0.07, 0.85);
+      worktableGroup.add(closedElecBox);
+
+      // Animated Folding Cardboard Delta-Wing Drone (with Front Nose Propeller!) in the center of the Worktable
+      animatedWorktableDrone = createCardboardDeltaDrone(true);
+      animatedWorktableDrone.root.position.set(-0.25, tableH + 0.10, 0.05);
+      worktableGroup.add(animatedWorktableDrone.root);
+
+      bunkerBGroup.add(worktableGroup);
+    }
+    populateBunkerB();
+
+    // =========================================================================
+    // 9. TWO 5-TON MILITARY CARGO TRUCKS IN FRONT OF BUNKERS
+    // =========================================================================
+    function createMilitaryCargoTruck(posX, posZ, isFlatPackTruck = false) {
+      const truckGroup = new THREE.Group();
+      truckGroup.position.set(posX, 0.2, posZ);
+      truckGroup.rotation.y = Math.PI / 2;
+
+      // Chassis Frame
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.36, 9.6), matDarkSteel);
+      chassis.position.set(0, 0.95, 0);
+      chassis.castShadow = true;
+      truckGroup.add(chassis);
+
+      // 6 Heavy Off-Road Wheels
+      const wheelGeo = new THREE.CylinderGeometry(0.68, 0.68, 0.48, 22);
+      wheelGeo.rotateZ(Math.PI / 2);
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+      const rimGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.5, 14);
+      rimGeo.rotateZ(Math.PI / 2);
+
+      [-3.2, 1.4, 3.1].forEach((wz) => {
+        [-1.35, 1.35].forEach((wx) => {
+          const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+          wheel.position.set(wx, 0.68, wz);
+          wheel.castShadow = true;
+          truckGroup.add(wheel);
+
+          const rim = new THREE.Mesh(rimGeo, matOliveDrab);
+          rim.position.set(wx, 0.68, wz);
+          truckGroup.add(rim);
+        });
+      });
+
+      // Armored Military Cab & Hood
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(2.65, 2.1, 2.2), matOliveDrab);
+      cab.position.set(0, 2.15, -2.5);
+      cab.castShadow = true;
+      truckGroup.add(cab);
+
+      const hood = new THREE.Mesh(new THREE.BoxGeometry(2.45, 1.25, 1.65), matOliveDark);
+      hood.position.set(0, 1.72, -4.15);
+      hood.castShadow = true;
+      truckGroup.add(hood);
+
+      const windshield = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.2, 0.85),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.15, metalness: 0.8 })
+      );
+      windshield.position.set(0, 2.45, -3.61);
+      windshield.rotation.y = Math.PI;
+      truckGroup.add(windshield);
+
+      // Cargo Bed Floor & Low Side Rails
+      const bedFloor = new THREE.Mesh(new THREE.BoxGeometry(2.85, 0.2, 6.2), matOliveDark);
+      bedFloor.position.set(0, 1.22, 1.75);
+      bedFloor.castShadow = true;
+      bedFloor.receiveShadow = true;
+      truckGroup.add(bedFloor);
+
+      const railGeo = new THREE.BoxGeometry(0.1, 0.78, 6.2);
+      [-1.38, 1.38].forEach((rx) => {
+        const rail = new THREE.Mesh(railGeo, matOliveDrab);
+        rail.position.set(rx, 1.68, 1.75);
+        truckGroup.add(rail);
+      });
+
+      // Cargo Load Group
+      const cargoGroup = new THREE.Group();
+      cargoGroup.position.set(0, 1.32, 1.75);
+      truckGroup.add(cargoGroup);
+
+      if (!isFlatPackTruck) {
+        // Left Truck (Conventional): Completely crammed with 12 bulky military crates (6x2 stack)
+        const cW = 1.22;
+        const cH = 0.86;
+        const cD = 1.88;
+        for (let layer = 0; layer < 2; layer++) {
+          for (let row = -1; row <= 1; row++) {
+            for (let col = -0.5; col <= 0.5; col += 1) {
+              const crate = new THREE.Mesh(new THREE.BoxGeometry(cW, cH, cD), matMilCrate);
+              crate.position.set(col * 1.28, cH / 2 + layer * (cH + 0.04), row * 1.94);
+              crate.castShadow = true;
+              cargoGroup.add(crate);
+            }
+          }
+        }
+      } else {
+        // Right Truck (Our Flat-Pack System): 2 High-Density Flat-Pack Cardboard Pallets + Small Electronics Boxes (180+ drones!)
+        [-1.55, 0.75].forEach((pz) => {
+          const pallet = createFlatPackPallet(20);
+          pallet.scale.set(0.92, 0.9, 0.88);
+          pallet.position.set(0, 0, pz);
+          cargoGroup.add(pallet);
+        });
+
+        // Stacked Small Electronics Boxes at the rear of the bed
+        for (let y = 0; y < 3; y++) {
+          [-0.62, 0.62].forEach((bx) => {
+            const eBox = createSmallElectronicsBox(false);
+            eBox.position.set(bx, y * 0.44, 2.35);
+            cargoGroup.add(eBox);
+          });
+        }
+      }
+
+      scene.add(truckGroup);
+      return truckGroup;
+    }
+
+    createMilitaryCargoTruck(-19, 20.5, false);
+    createMilitaryCargoTruck(19, 20.5, true);
+
+    // =========================================================================
+    // 10. CAMERA PRESETS, 85% TRANSPARENCY CYCLING & ANIMATION LOOP
+    // =========================================================================
+    const cameraPresets = {
+      overview: {
+        pos: new THREE.Vector3(0, 32, 62),
+        target: new THREE.Vector3(0, 3.5, 4)
+      },
+      bunkerA: {
+        pos: new THREE.Vector3(-19, 14, 15),
+        target: new THREE.Vector3(-19, 2.5, -5)
+      },
+      bunkerB: {
+        pos: new THREE.Vector3(16, 14, 14),
+        target: new THREE.Vector3(18, 2.2, -5.5)
+      },
+      workbench: {
+        pos: new THREE.Vector3(21.2, 4.3, 0.8),
+        target: new THREE.Vector3(21.2, 1.9, -3.4)
+      },
+      trucks: {
+        pos: new THREE.Vector3(0, 13, 44),
+        target: new THREE.Vector3(0, 2.0, 20.5)
+      }
+    };
+
+    let desiredCamPos = null;
+    let desiredCamTarget = null;
+    let camTransitionProgress = 1;
+
+    window.setCameraView = function (presetKey) {
+      const preset = cameraPresets[presetKey];
+      if (!preset) return;
+
+      desiredCamPos = preset.pos.clone();
+      desiredCamTarget = preset.target.clone();
+      camTransitionProgress = 0;
+
+      ['overview', 'bunkerA', 'bunkerB', 'workbench', 'trucks'].forEach((k) => {
+        const btn = document.getElementById(`btn-cam-${k}`);
+        if (btn) btn.classList.toggle('active', k === presetKey);
+      });
+    };
+
+    // Cycle Building Transparency:
+    // Mode 0 (Default): 85% Transparent (opacity = 0.15)
+    // Mode 1: 95% Ghost Wireframe (opacity = 0.05)
+    // Mode 2: 50% Semi-Transparent (opacity = 0.50)
+    const transparencyModes = [
+      { shellOpacity: 0.15, edgeOpacity: 0.34 }, // 85% Transparency (Default)
+      { shellOpacity: 0.05, edgeOpacity: 0.22 }, // 95% Transparency
+      { shellOpacity: 0.50, edgeOpacity: 0.55 }  // 50% Transparency
+    ];
+    let currentAlphaModeIndex = 0;
+
+    window.cycleBunkerTransparency = function () {
+      currentAlphaModeIndex = (currentAlphaModeIndex + 1) % transparencyModes.length;
+      const mode = transparencyModes[currentAlphaModeIndex];
+
+      bunkerShellMaterials.forEach((mat) => {
+        mat.opacity = mode.shellOpacity;
+      });
+      bunkerEdgeMaterials.forEach((mat) => {
+        mat.opacity = mode.edgeOpacity;
+      });
+
+      const btn = document.getElementById('btn-toggle-alpha');
+      if (btn) {
+        btn.classList.toggle('active', currentAlphaModeIndex === 0);
+      }
+    };
+
+    // Worktable Folding & Front-Nose Propeller Assembly Animation
+    let assemblyPlaying = true;
+    let assemblyTime = 0.78;
+    let assemblyDir = 1;
+
+    window.toggleAssemblyAnimation = function () {
+      assemblyPlaying = !assemblyPlaying;
+      const btn = document.getElementById('btn-toggle-anim');
+      const pauseIcon = document.getElementById('icon-anim-pause');
+      const playIcon = document.getElementById('icon-anim-play');
+      if (btn) btn.classList.toggle('active', assemblyPlaying);
+      if (pauseIcon && playIcon) {
+        pauseIcon.classList.toggle('hidden', !assemblyPlaying);
+        playIcon.classList.toggle('hidden', assemblyPlaying);
+      }
+    };
+
+    function updateWorktableDroneAssembly(t) {
+      if (!animatedWorktableDrone) return;
+
+      const foldPhase = Math.min(1, Math.max(0, t * 1.45));
+      const avionicsPhase = Math.min(1, Math.max(0, (t - 0.32) * 1.55));
+
+      // 1. Center fuselage walls fold up 90 degrees
+      const wallAngle = (1 - foldPhase) * (Math.PI / 2);
+      animatedWorktableDrone.wallLeftPivot.rotation.z = wallAngle;
+      animatedWorktableDrone.wallRightPivot.rotation.z = -wallAngle;
+
+      // 2. Wingtip vertical winglets fold up 90 degrees
+      const wingletAngle = (1 - foldPhase) * (Math.PI / 2);
+      animatedWorktableDrone.leftWingletPivot.rotation.z = wingletAngle;
+      animatedWorktableDrone.rightWingletPivot.rotation.z = -wingletAngle;
+
+      // 3. Subtle delta-wing folding motion
+      const wingLift = Math.sin(foldPhase * Math.PI) * 0.14;
+      animatedWorktableDrone.leftWingPivot.rotation.z = -wingLift;
+      animatedWorktableDrone.rightWingPivot.rotation.z = wingLift;
+
+      // 4. Front Nose 3D-Printed Motor Mount + Brushless Motor + Propeller + SpeedyBee FC drop into place
+      animatedWorktableDrone.avionicsGroup.position.y = (1 - avionicsPhase) * 0.9;
+      animatedWorktableDrone.avionicsGroup.visible = t > 0.15;
+    }
+
+    // Main Render Loop
+    const clock = new THREE.Clock();
+    let deckPaused = false;   // 발표 덱에서 이 장이 아닐 때 렌더 정지
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (deckPaused) return;
+      const delta = Math.min(0.05, clock.getDelta());
+
+      // Smooth Camera Transitions
+      if (camTransitionProgress < 1 && desiredCamPos && desiredCamTarget) {
+        camTransitionProgress = Math.min(1, camTransitionProgress + delta * 2.2);
+        const ease = 1 - Math.pow(1 - camTransitionProgress, 3);
+        camera.position.lerp(desiredCamPos, ease * 0.18);
+        controls.target.lerp(desiredCamTarget, ease * 0.18);
+      }
+
+      // Update Worktable Folding Animation
+      if (assemblyPlaying) {
+        assemblyTime += delta * 0.28 * assemblyDir;
+        if (assemblyTime >= 1.25) {
+          assemblyTime = 1.25;
+          assemblyDir = -1;
+        } else if (assemblyTime <= -0.1) {
+          assemblyTime = -0.1;
+          assemblyDir = 1;
+        }
+      }
+      const clampedT = Math.min(1, Math.max(0, assemblyTime));
+      updateWorktableDroneAssembly(clampedT);
+
+      // Spin all front nose-mounted propellers
+      spinningPropellers.forEach((propHub, idx) => {
+        if (idx === spinningPropellers.length - 1) {
+          // Worktable animated drone spins its nose propeller once assembled
+          if (clampedT > 0.78) {
+            propHub.rotation.z += delta * 22;
+          }
+        } else {
+          // Completed drones on rack gently spin their nose propellers
+          propHub.rotation.z += delta * 12;
+        }
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /* ---- 발표 덱(부모 창) 연동 : 이 장이 아닐 때 렌더 정지 · 키 입력을 덱으로 전달 ---- */
+    window.addEventListener('message', (e) => {
+      const d = e.data || {};
+      if (d.deck3d === 'pause') {
+        deckPaused = true;
+      } else if (d.deck3d === 'play') {
+        deckPaused = false;
+        clock.getDelta();               /* 멈춰 있던 시간을 버려 애니메이션이 튀지 않게 */
+      }
+    });
+
+    function postToDeck(nav) {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ deckNav: nav }, '*');
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const k = e.key;
+      if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Spacebar' || k === 'Enter') {
+        e.preventDefault(); postToDeck('next');
+      } else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') {
+        e.preventDefault(); postToDeck('prev');
+      } else if (k === 'f' || k === 'F') {
+        postToDeck('fullscreen');
+      } else if (k === 'm' || k === 'M') {
+        postToDeck('mode');
+      }
+    });
+
+    window.onload = function () {
+      animate();
+    };
+  </script>
+</body>
+</html>
