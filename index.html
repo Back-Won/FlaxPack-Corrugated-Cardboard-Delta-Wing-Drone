@@ -1556,8 +1556,8 @@
       animation:mnBob 1.5s ease-in-out infinite;
     }
     @keyframes mnBob{
-      0%,100%{ transform:translateY(0); opacity:.55; }
-      50%{ transform:translateY(calc(3px * var(--m-u))); opacity:1; }
+      0%,100%{ transform:translateX(0); opacity:.55; }
+      50%{ transform:translateX(calc(3px * var(--m-u))); opacity:1; }
     }
     /* 아직 페이지 끝에 닿지 않았을 때 : '끝까지' 안내를 주황색으로 강조 */
     html.m.m-gate #mnext{ border-color:rgba(232,90,42,.5); }
@@ -1720,6 +1720,22 @@
     html.m .tl-card .thumb{ height:calc(170px * var(--m-u)); margin:0 0 calc(12px * var(--m-u)); }
     html.m .tl-card.hot .thumb,
     html.m .tl-card.bad .thumb{ height:calc(152px * var(--m-u)); }
+    /* 카드 사진 : 폰 폭에 맞춰 원본 비율로 높이를 자동 계산 (잘림 없이) */
+    html.m .tl-card .thumb,
+    html.m .tl-card.hot .thumb,
+    html.m .tl-card.bad .thumb,
+    html.m .tl-card.wide .thumb,
+    html.m .tl-photo .ph{
+      height:auto !important;
+      aspect-ratio: var(--ph-ratio, 4 / 3);
+      max-height:calc(62vh);
+      flex:none;
+    }
+    html.m .tl-card .thumb img,
+    html.m .tl-photo .ph img{
+      width:100%; height:100%;
+      object-fit:contain;
+    }
 
     /* 매트릭스 : 표 → 카드 */
     html.m .matrix-table{ display:block; margin-top:calc(18px * var(--m-u)); font-size:calc(13px * var(--m-u)); }
@@ -1864,6 +1880,8 @@
     }
     html.m #axis .a-tick{ display:none; }
     html.m #axis .a-head{ display:none; }   /* 폰에서는 채움 끝단만으로 진행 표시 */
+    /* 모든 장을 페이지 단위로 넘기므로 고정 세로축은 쓰지 않는다 */
+    html.m #axis{ display:none; }
 
     /* 포인트 카드 : 탭 안내 */
     html.m .tl-col::after{ display:none; }
@@ -2784,7 +2802,7 @@
   <span class="mn-count"><b>01</b><span class="mn-tot"> / 15</span></span>
   <span class="mn-rail"><i></i></span>
   <span class="mn-go"><span class="mn-go-t">다음 장</span>
-    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </span>
 </button>
 <div class="ctrl left"><button type="button" id="prevBtn" aria-label="이전 장">← 이전</button></div>
@@ -2796,7 +2814,7 @@
   <button type="button" id="pdfBtn" title="인쇄 창에서 'PDF로 저장'을 고르면 슬라이드 1장이 16:9 페이지 1장으로 저장됩니다 (P)">PDF 저장</button>
   <button type="button" id="modeBtn" aria-pressed="false" title="아이폰 17 화면으로 미리보기 (M)">모바일 보기</button>
 </div>
-<div id="hint">화면을 클릭하면 다음 카드 · 카드를 누르면 자세히 보기 · F 전체화면 · M 모바일 보기 · P PDF 저장</div>
+<div id="hint">화면을 클릭하면 다음 장 · 카드를 누르면 자세히 보기 · F 전체화면 · M 모바일 보기 · P PDF 저장</div>
 
 <script>
 (function () {
@@ -2879,19 +2897,19 @@
     }
   }
 
-  /* ---- 모바일 구역 : 전시관(연속 스크롤) / 그 외(한 장씩 페이지) ---- */
+  /* ---- 모바일 구역 : 모든 장을 한 장씩 페이지로 넘긴다 ---- */
   function zoneOf(i) {
-    var s = slides[i];
-    return (s && DETAIL && DETAIL[s.id]) ? 1 : 0;
+    /* 폰에서는 전시관도 독립된 페이지로 취급한다.
+       세로 스크롤은 한 장 안의 내용을 읽는 데만 쓰고, 장 이동은 가로 스와이프로만 한다. */
+    return 0;
   }
   /* 구역 상태를 html.m.in-hall 클래스로 반영 (구역이 바뀔 때만 레이아웃이 바뀐다) */
   function syncZone(i) {
-    root.classList.toggle('in-hall', isMobile() && i >= 0 && zoneOf(i) === 1);
+    root.classList.toggle('in-hall', false);
   }
-  /* 모바일: 해당 장 위치로 이동 — 페이지형 장은 항상 맨 위에서 시작 */
+  /* 모바일: 새 장은 항상 맨 위에서 시작 */
   function jumpToSlide(i, instant) {
-    if (zoneOf(i) === 1) scrollToSlide(i, instant);
-    else if (window.scrollTo) window.scrollTo(0, 0);
+    if (window.scrollTo) window.scrollTo(0, 0);
     scheduleCue();
   }
 
@@ -3136,9 +3154,9 @@
   DETAIL.s9  = RAW.h5.slice(2);           /* 8 · 9호기 */
   DETAIL.s10 = RAW.h6.slice();            /* 10 · 11호기 */
 
-  /* 모바일 구역 배정 : 전시관(s3~s10)은 연속 스크롤, 나머지는 한 장씩 페이지 */
+  /* 모바일 구역 배정 : 폰에서는 모든 장을 독립된 페이지로 넘긴다 */
   slides.forEach(function (s) {
-    s.classList.add(DETAIL[s.id] ? 'z-hall' : 'z-page');
+    s.classList.add('z-page');
   });
 
   /* 카드 안에 문제 → 원인 → 조치 3줄을 상세 데이터에서 그대로 채운다 */
@@ -3156,6 +3174,20 @@
         return '<li><b>' + r[0] + '</b><span>' + r[1] + '</span></li>';
       }).join('');
       host.appendChild(ul);
+    });
+  }
+
+  /* 카드 사진의 실제 비율을 CSS 변수로 넘겨, 폰 폭에 맞춰 높이가 자동으로 잡히게 한다 */
+  function fitCardMedia() {
+    Array.prototype.forEach.call(document.querySelectorAll('.tl-card .thumb, .tl-photo .ph'), function (box) {
+      var img = box.querySelector('img');
+      if (!img) return;
+      function apply() {
+        if (!img.naturalWidth || !img.naturalHeight) return;
+        box.style.setProperty('--ph-ratio', img.naturalWidth + ' / ' + img.naturalHeight);
+      }
+      if (img.complete) apply();
+      else img.addEventListener('load', apply, { once: true });
     });
   }
 
@@ -3192,13 +3224,13 @@
   function applySteps(i) {
     var cols = colsOf(i);
     if (!cols.length) return;
-    /* 그 장에서 지금까지 도착한 칸까지만 보인다 (새로 들어온 장은 첫 칸부터) */
-    var k = prog[slides[i].id];
-    if (k == null) k = 0;
-    var all = isMobile();
-    cols.forEach(function (col, n) {
-      col.classList.toggle('on', all || n <= k);
+    /* 모든 카드를 기본 상태에서 한 번에 보여 준다.
+       (카드를 한 장씩 열던 '다음 카드' 단계 진행은 사용하지 않는다) */
+    cols.forEach(function (col) {
+      col.classList.add('on');
     });
+    /* 시간축은 이 장의 마지막 카드 위치에 맞춘다 */
+    prog[slides[i].id] = Math.max(0, cols.length - 1);
   }
 
   /* 칸의 점 위치를 축 위 비율(0~1)로 환산 — 스케일 변환에 영향받지 않도록 화면 좌표 비율로 계산.
@@ -3319,39 +3351,26 @@
     }
   }
 
-  /* 하단 '다음 장' 표시 갱신 : 현재/전체, 덱 진행률, 다음 장 종류 */
+  /* 하단 '다음 장' 표시 갱신 : 현재/전체, 덱 진행률, 다음 장 이름 */
   function updateNextCue(i) {
     if (!mnext) return;
     var nx = slides[i + 1];
     mnNow.textContent = pad(i + 1);
     mnTot.textContent = ' / ' + pad(total);
     mnFill.style.width = (((i + 1) / total) * 100) + '%';
-    mnGo.textContent = !nx ? '마지막 장' : (DETAIL && DETAIL[nx.id] ? '전시관 입장' : '다음 장');
+    mnGo.textContent = !nx ? '마지막 장' : '다음 장';
     root.classList.toggle('at-end', !nx);
     mnext.setAttribute('aria-label', !nx ? '마지막 장' :
-      pad(i + 2) + '장 ' + (DETAIL && DETAIL[nx.id] ? '전시관으로 이동' : '다음 장으로 이동') +
-      ' · 위로 밀면 이전 장');
+      pad(i + 2) + '장 다음 장으로 이동');
     updateCueState();
   }
 
-  /* 하단 바 문구/게이트 상태.
-     페이지형 장은 '끝까지 내린 뒤'에만 다음 장으로 바뀌고,
-     아직 끝이 아니면 바가 '↓ 끝까지'를 안내한다. */
+  /* 하단 바 문구. 폰에서도 장 이동은 가로 스와이프/버튼으로 바로 일어난다. */
   function updateCueState() {
     if (!mnext || index < 0 || !slides[index]) return;
-    var page = isMobile() && zoneOf(index) === 0;
     var hasNext = !!slides[index + 1];
-    var atEnd = page ? pageAtEnd() : false;
-    var gate = page && hasNext && !atEnd;
-    root.classList.toggle('m-gate', gate);
-    root.classList.toggle('page-end', page && hasNext && atEnd);
-    if (!hasNext) {
-      mnGo.textContent = '마지막 장';
-    } else if (gate) {
-      mnGo.textContent = '↓ 끝까지';
-    } else {
-      mnGo.textContent = (DETAIL && DETAIL[slides[index + 1].id]) ? '전시관 입장 →' : '다음 장 →';
-    }
+    root.classList.remove('m-gate', 'page-end');
+    mnGo.textContent = !hasNext ? '마지막 장' : '다음 장 →';
   }
 
   /* 새 장은 레이아웃이 한 프레임 늦게 잡히므로, 장 이동 직후 한 번 더 갱신한다 */
@@ -3446,6 +3465,7 @@
   });
   /* 카드 하단에 근거 3줄을 채운다 */
   paintRows();
+  fitCardMedia();
 
   /* 세로 사진은 자르지 않고 원본 비율에 맞춰 사진 칸과 카드 너비를 다시 잡는다.
      가로로 긴 사진은 기존 형식(고정 사진 칸 648px + cover)을 그대로 쓴다. */
@@ -3557,75 +3577,9 @@
     renderZoom();
   }
 
-  /* 카드가 남아 있으면 한 칸씩 열고, 마지막 칸이면 장을 넘긴다 (클릭 = 다음 카드 → 다음 장) */
-  function advanceStep(dir) {
-    if (isMobile()) return false;
-    var s = slides[index];
-    if (!s || !DETAIL[s.id]) return false;
-    var cols = colsOf(index);
-    if (cols.length < 2) return false;
-    var max = cols.length - 1;
-    var k = prog[s.id] == null ? 0 : prog[s.id];
-    if (dir > 0 && k < max) {
-      prog[s.id] = k + 1;
-      paint(index, true);
-      return true;
-    }
-    if (dir < 0 && k > 0) {
-      prog[s.id] = k - 1;
-      paint(index, true);
-      return true;
-    }
-    return false;
-  }
-
-  /* 폰 : 현재 페이지형 장에서 스크롤할 수 있는 마지막 위치 */
-  function pageEndY() {
-    var el = slides[index];
-    if (!el) return null;
-    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
-    var top = el.getBoundingClientRect().top + y;
-    var end = Math.max(0, top + el.offsetHeight - (window.innerHeight || 0));
-    /* 실제 문서가 스크롤할 수 있는 끝보다 멀리 가지 않게 보정 */
-    var doc = document.scrollingElement || document.documentElement;
-    var max = Math.max(0, (doc ? doc.scrollHeight : 0) - (window.innerHeight || 0));
-    return Math.min(end, max);
-  }
-
-  function pageAtEnd() {
-    var endY = pageEndY();
-    if (endY == null) return true;
-    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
-    return endY - y <= 8;
-  }
-
-  /* 다음 장으로 가기 전에 현재 장을 끝까지 내리는 동작.
-     여기서는 절대 다음 장으로 넘어가지 않는다 — 한 번 더 눌러야 넘어간다. */
-  function scrollPageToEnd() {
-    var endY = pageEndY();
-    if (endY == null) return;
-    locked = true;
-    window.setTimeout(function () { locked = false; }, 420);
-    try { window.scrollTo({ top: endY, behavior: 'smooth' }); }
-    catch (err) { window.scrollTo(0, endY); }
-    updateCueState();
-    window.setTimeout(function () {
-      if (!pageAtEnd()) {
-        try { window.scrollTo(0, endY); } catch (err) {}
-        updateCueState();
-      }
-    }, 480);
-  }
-
+  /* 카드가 남아 있어도 단계별로 열지 않고, 바로 다음 장으로 넘어간다. */
   function go(dir) {
     if (locked) return;
-    /* 폰 페이지형 장 : 다음 장은 현재 장을 '끝까지 내린 뒤'에만 넘어간다.
-       끝이 아니면 다음 장으로 가지 않고 끝까지 스크롤만 한다. */
-    if (dir > 0 && isMobile() && !zoomOpen && index >= 0 &&
-        zoneOf(index) === 0 && !pageAtEnd()) {
-      scrollPageToEnd();
-      return;
-    }
     step(dir);
   }
 
@@ -3634,7 +3588,6 @@
   function step(dir) {
     locked = true;
     window.setTimeout(function () { locked = false; }, 260);
-    if (advanceStep(dir)) return;
     show(index + dir, false, false, dir);
   }
 
@@ -3669,30 +3622,11 @@
       hideHint();
       var hid = col.getAttribute('data-hall');
       var kk = parseInt(col.getAttribute('data-i'), 10) || 0;
-      /* 아직 도착하지 않은 칸을 누르면 그 칸까지 열고, 도착한 칸은 상세 보기 */
-      if (!col.classList.contains('on')) {
-        prog[hid] = kk;
-        applySteps(index);
-        paintAxis(index, kk);
-        return;
-      }
       openZoom(hid, kk);
       return;
     }
     if (zoomOpen) return;
-    if (isMobile()) {
-      /* 모바일: 타임라인이 있는 장은 탭으로 넘기지 않고(스크롤로 연속 열람),
-         그 외 장(표지·요약 등)은 '화면 아래쪽'을 탭했을 때 다음 장으로.
-         긴 장은 go()가 먼저 끝까지 내리고, 그 다음 탭에서 넘어간다. */
-      if (e.target.closest('a') || e.target.closest('.ctrl') ||
-          e.target.closest('button') || e.target.closest('[role="button"]')) return;
-      if (colsOf(index).length) return;
-      if (e.clientY < (window.innerHeight || 0) * 0.68) return;
-      hideHint();
-      go(1);
-      return;
-    }
-    if (e.target.closest('a') || e.target.closest('.ctrl')) return;
+    if (isMobile()) return;          /* 폰에서는 본문 탭으로 장을 넘기지 않는다 */
     hideHint();
     go(1);
   });
@@ -3716,26 +3650,9 @@
     hideHint();
     go(1);
   });
-  /* 하단 진행 표시(폰 페이지형 장) : 눌러서 다음 장, 위로 밀면 이전 장 */
-  var mnY0 = 0, mnT0 = 0, mnSwiped = false;
-  mnext.addEventListener('pointerdown', function (e) {
-    mnY0 = e.clientY; mnT0 = Date.now();
-    e.stopPropagation();
-  }, { passive: true });
-  mnext.addEventListener('pointerup', function (e) {
-    e.stopPropagation();
-    var dy = e.clientY - mnY0;
-    if (Math.abs(dy) > 26 && Date.now() - mnT0 < 800) {
-      mnSwiped = true;
-      window.setTimeout(function () { mnSwiped = false; }, 450);
-      hideHint();
-      if (dy < 0) go(-1);              /* 위로 밀면 이전 장 */
-    }
-  }, { passive: true });
-  mnext.addEventListener('pointercancel', function () { mnSwiped = false; }, { passive: true });
+  /* 하단 진행 표시(폰) : 눌러서 다음 장 */
   mnext.addEventListener('click', function (e) {
     e.stopPropagation();
-    if (mnSwiped) { mnSwiped = false; return; }
     hideHint();
     go(1);
   });
@@ -3755,12 +3672,6 @@
       e.preventDefault();
       var thid = tcol.getAttribute('data-hall');
       var tkk = parseInt(tcol.getAttribute('data-i'), 10) || 0;
-      if (!tcol.classList.contains('on')) {
-        prog[thid] = tkk;
-        applySteps(index);
-        paintAxis(index, tkk);
-        return;
-      }
       openZoom(thid, tkk);
       return;
     }
@@ -3827,25 +3738,10 @@
   document.addEventListener('pointercancel', function () { tracking = false; }, { passive: true });
 
   /* 모바일 터치 제스처
-     · 페이지형 장 : 맨 아래에서 더 위로 = 이전 장, 맨 위에서 더 아래로 = 이전 장(첫 장이면 그대로)
-     · 전시관 장 : 맨 아래에서 더 위로 = 다음 장, 맨 위에서 더 아래로 = 이전 장
-     · 좌우로 밀기 : 왼쪽 = 다음(끝까지 내린 뒤), 오른쪽 = 이전 */
-  var tY = 0, tX0 = 0, tOn = false, tLast = 0, tOver = 0, tDir = 0, tNav = false;
-  var tHoriz = false, tMoveX = 0, tStart = 0, tHorizOK = false, tDone = false;
-  var OVER_LIMIT = 68;                        /* 경계를 넘겨 더 민 거리(px) */
-
-  function scrollMaxY() {
-    var el = document.scrollingElement || document.documentElement;
-    var h = (el && el.scrollHeight) || (document.documentElement && document.documentElement.scrollHeight) || 0;
-    return Math.max(0, h - (window.innerHeight || 0));
-  }
-  function leaveZone(dir) {
-    /* 더 넘어갈 장이 없으면 아무 것도 하지 않는다 */
-    if (dir > 0 ? index >= total - 1 : index <= 0) { tOver = 0; tDir = 0; return; }
-    tOver = 0; tDir = 0; tNav = true; tDone = true;
-    hideHint();
-    go(dir);
-  }
+     · 세로 스크롤은 한 장 안의 내용을 읽는 데만 쓴다.
+     · 장 이동은 좌우 스와이프로만 한다 (왼쪽 = 다음, 오른쪽 = 이전). */
+  var tY = 0, tX0 = 0, tOn = false, tLast = 0, tNav = false;
+  var tHoriz = false, tMoveX = 0, tStart = 0, tDone = false;
 
   document.addEventListener('touchstart', function (e) {
     if (!isMobile() || zoomOpen || e.touches.length !== 1 ||
@@ -3857,12 +3753,11 @@
     tX0 = e.touches[0].clientX;
     tStart = Date.now();
     tHoriz = false; tMoveX = 0;
-    tHorizOK = zoneOf(index) === 0;
-    tOver = 0; tDir = 0; tNav = false; tDone = false;
+    tNav = false; tDone = false;
     tOn = true;
   }, { passive: true });
 
-  /* 경계('맨 아래'/'맨 위')에 닿은 뒤 같은 방향으로 더 움직인 거리만 누적한다 */
+  /* 가로 이동만 기록한다. 세로 이동은 브라우저의 페이지 스크롤에 그대로 맡긴다. */
   document.addEventListener('touchmove', function (e) {
     if (!tOn || tDone) return;
     var t = e.touches && e.touches[0];
@@ -3870,61 +3765,40 @@
     var y = t.clientY;
     var dy = y - tY;
     var dx = t.clientX - tX0;
-    var d = y - tLast;                        /* 이번 이동량 (위로 밀면 음수) */
     tLast = y;
-    /* 가로로 더 많이 움직였으면 좌우 스와이프로 기록 (전시관에서는 넘기지 않고 click만 막는다) */
     if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) {
       tHoriz = true; tMoveX = dx;
-      tOver = 0; tDir = 0; return;
     }
-    if (tHoriz) return;
-    if (Math.abs(d) < 0.6) return;
-    var s = window.pageYOffset || document.documentElement.scrollTop || 0;
-    var max = scrollMaxY();
-    if (s < 0) s = 0; else if (s > max) s = max;
-    var page = zoneOf(index) === 0;
-    if (d < 0 && s >= max - 1) {              /* 끝에 닿은 뒤 더 밀어 올림 */
-      var upDir = page ? -1 : 1;              /* 페이지형은 이전, 전시관은 다음 */
-      tOver = (tDir === upDir ? tOver : 0) - d; tDir = upDir;
-    } else if (d > 0 && s <= 1) {             /* 처음에 닿은 뒤 더 밀어 내림 */
-      /* 맨 위에서 아래로 미는 것은 이전 장 (첫 장이면 그대로) */
-      var downDir = -1;
-      tOver = (tDir === downDir ? tOver : 0) + d; tDir = downDir;
-    } else {
-      tOver = 0; tDir = 0;
-    }
-    if (tOver > OVER_LIMIT) leaveZone(tDir > 0 ? 1 : -1);
   }, { passive: true });
 
   document.addEventListener('touchend', function () {
     if (!tOn) return;
     var dt = Date.now() - tStart;
-    /* 가로 스와이프 : 페이지형 장에서만 왼쪽 = 다음, 오른쪽 = 이전 (짧은 실수는 무시) */
-    if (tHorizOK && tHoriz && Math.abs(tMoveX) > 60 && dt < 900) {
+    /* 가로 스와이프 : 왼쪽 = 다음, 오른쪽 = 이전 (짧은 실수는 무시) */
+    if (tHoriz && Math.abs(tMoveX) > 60 && dt < 900) {
       tNav = true;
       hideHint();
       go(tMoveX < 0 ? 1 : -1);
     }
-    /* 스크롤·스와이프 뒤 따라오는 click(다음 장)을 한 번 무시한다 */
+    /* 스크롤·스와이프 뒤 따라오는 click을 한 번 무시한다 */
     if (tNav || tHoriz || Math.abs(tLast - tY) > 12) {
       tNav = false;
       suppressClick = true;
       window.setTimeout(function () { suppressClick = false; }, 400);
     }
-    tOn = false; tOver = 0; tDir = 0; tHoriz = false; tDone = false;
+    tOn = false; tHoriz = false; tDone = false;
   }, { passive: true });
 
   document.addEventListener('touchcancel', function () {
-    tOn = false; tOver = 0; tDir = 0; tHoriz = false; tDone = false;
+    tOn = false; tHoriz = false; tDone = false;
   }, { passive: true });
 
   /* 시작 위치 (URL 해시 지원) */
   var start = parseInt((location.hash || '').replace('#', ''), 10);
   root.classList.add('boot');
-  /* 전시관 카드는 클릭할 때마다 한 칸씩 열리므로 등장 애니메이션은 끈다 */
-  root.classList.add('steps');
+  /* 전시관 카드도 기본 상태에서 모두 보이도록 등장 애니메이션만 끈다 */
   Array.prototype.forEach.call(document.querySelectorAll('.slide'), function (s) {
-    if (!DETAIL[s.id]) { s.classList.add('tap-next'); return; }
+    if (!DETAIL[s.id]) return;
     Array.prototype.forEach.call(s.querySelectorAll('.tl-card, .tl-photo'), function (el) {
       el.classList.remove('fade');
       el.style.removeProperty('--d');
