@@ -1559,10 +1559,6 @@
       0%,100%{ transform:translateX(0); opacity:.55; }
       50%{ transform:translateX(calc(3px * var(--m-u))); opacity:1; }
     }
-    /* 아직 페이지 끝에 닿지 않았을 때 : '끝까지' 안내를 주황색으로 강조 */
-    html.m.m-gate #mnext{ border-color:rgba(232,90,42,.5); }
-    html.m.m-gate #mnext .mn-go-t{ color:#f6c9a9; }
-    html.m.m-gate #mnext .mn-go svg{ animation-duration:.7s; }
 
     /* 구역 경계 : 스크롤 구역의 처음/끝에서 페이지로 넘어가는 버튼 */
     .m-zone{ display:none; }
@@ -1897,29 +1893,6 @@
       line-height:1;
       color:var(--orange);
       opacity:.6;
-    }
-
-    /* 타임라인이 없는 장 : 아래쪽 탭/하단 바로 다음 장.
-       긴 장은 '끝까지 내린 뒤'에만 넘어가고, 끝에 닿으면 안내 문구가 바뀐다. */
-    html.m .slide.tap-next::after{
-      content:"↓ 끝까지 내린 뒤 탭 = 다음 · ↔ 이동";
-      position:absolute;
-      left:0; right:0; bottom:calc(60px * var(--m-u));
-      padding:0 calc(10px * var(--m-u));
-      text-align:center;
-      font-size:calc(11px * var(--m-u));
-      font-weight:800;
-      line-height:1.4;
-      letter-spacing:.04em;
-      color:#a19b90;
-      pointer-events:none;
-      z-index:2;
-    }
-    html.m.page-end .slide.tap-next::after{
-      content:"아래쪽 탭/바 = 다음 · ↑ 이전 · ↔ 이동";
-    }
-    html.m.at-end .slide.tap-next::after{
-      content:"마지막 장 · ↑/← 이전";
     }
 
     /* 포인트 확대 (모바일 전체 화면) */
@@ -3369,7 +3342,6 @@
   function updateCueState() {
     if (!mnext || index < 0 || !slides[index]) return;
     var hasNext = !!slides[index + 1];
-    root.classList.remove('m-gate', 'page-end');
     mnGo.textContent = !hasNext ? '마지막 장' : '다음 장 →';
   }
 
@@ -3437,7 +3409,7 @@
     });
     if (best >= 0 && best !== index) paint(best, true);
     else paintAxis(index, prog[slides[index].id]);
-    updateCueState();                   /* 끝까지 내렸는지에 따라 '↓ 끝까지' ↔ '다음 장' */
+    updateCueState();                   /* 현재 장/다음 장 표시 갱신 */
   }
   window.addEventListener('scroll', function () {
     if (!isMobile()) return;
