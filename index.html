@@ -18,6 +18,8 @@
     --line:#dedacf;
     --rail:#2f2e2a;
     --muted:#6b675f;
+    /* 모바일 전용 비례 단위 : 폰 화면 폭 / 402 (iPhone 17 기준). JS가 실제 폭으로 갱신한다. */
+    --m-u:1;
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
   html,body{ height:100%; }
@@ -47,6 +49,7 @@
     flex:none;
     transform:translate(-50%,-50%);
     transform-origin:center center;
+    overflow:hidden;              /* 숨은 장의 34px 슬라이드 인이 문서 폭을 늘리지 않도록 자른다 */
     box-shadow:0 30px 90px rgba(0,0,0,.55);
     background:var(--cream);
   }
@@ -569,7 +572,7 @@
     overflow:hidden;
   }
   .pr-bar .pr-rail i{ display:block; width:100%; height:100%; background:#8c8578; }
-  .pr-bar.our .pr-rail i{ background:var(--orange); }
+  .pr-bar.our .pr-rail i{ background:var(--orange); min-width:2px; }
   .pr-bar b{
     flex:none;
     min-width:52px;
@@ -660,6 +663,21 @@
     color:var(--orange);
   }
   .pr-icons svg{ width:21px; height:21px; fill:currentColor; display:block; }
+
+  .pr-basis{
+    flex:none;
+    margin-top:18px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+    font-size:11.5px;
+    font-weight:600;
+    line-height:1.55;
+    color:#8b877f;
+    letter-spacing:-.01em;
+  }
+  .pr-basis p{ margin:0; }
+  .pr-basis p + p{ margin-top:6px; }
+  .pr-basis b{ color:var(--ink-soft); font-weight:800; }
 
   .pr-table{
     display:flex;
@@ -1413,6 +1431,7 @@
       -webkit-overflow-scrolling:touch;
       /* 맨 위/맨 아래에서 더 밀 때 새로고침·바운스로 새지 않도록 (구역 넘김 제스처용) */
       overscroll-behavior-y:contain;
+      overscroll-behavior-x:none;   /* 좌우 스와이프가 브라우저 뒤로/앞으로 가기로 새지 않게 */
     }
     html.m #stage{
       position:static;
@@ -1420,17 +1439,18 @@
       width:100%;
       height:auto;
       transform:none !important;
+      overflow:visible;           /* 폰에서는 장이 아래에서 올라오는 움직임을 자르지 않는다 */
       box-shadow:none;
     }
-    html.m.preview body{ padding:26px 0 44px; }
+    html.m.preview body{ padding:calc(26px * var(--m-u)) 0 calc(44px * var(--m-u)); }
     /* 미리보기는 iPhone 17 기준 (402 × 874) */
     html.m.preview #stage{
-      width:402px;
+      width:calc(402px * var(--m-u));
       max-width:100%;
       margin:0 auto;
-      box-shadow:0 26px 80px rgba(0,0,0,.65);
+      box-shadow:0 calc(26px * var(--m-u)) calc(80px * var(--m-u)) rgba(0,0,0,.65);
     }
-    html.m.preview .slide{ min-height:874px; }
+    html.m.preview .slide{ min-height:calc(874px * var(--m-u)); }
     html.m .slide{
       position:relative;
       inset:auto;
@@ -1438,7 +1458,9 @@
       height:auto;
       min-height:100vh;
       min-height:100svh;
-      padding:28px 20px 46px 50px;   /* 왼쪽 50px = 연속 시간축 자리 */
+      min-height:100dvh;
+      /* 왼쪽 여백은 기본 20px. 시간축이 그려지는 전시관(z-hall)만 축 자리를 비운다. */
+      padding:calc(28px * var(--m-u)) calc(20px * var(--m-u)) calc(46px * var(--m-u)) calc(20px * var(--m-u));
       overflow:visible;
       opacity:1;
       visibility:visible;
@@ -1446,6 +1468,10 @@
       transition:none;
       justify-content:flex-start;
     }
+    /* 전시관(연속 시간축) 장 : 왼쪽 고정축과 겹치지 않게 50px 확보 */
+    html.m .slide.z-hall{ padding-left:calc(50px * var(--m-u)); }
+    /* 페이지형 장 : 하단 '다음 장' 표시 자리를 비워 둔다 */
+    html.m .slide.z-page{ padding-bottom:calc(86px * var(--m-u)); }
 
     /* ── 모바일 구역(zone) ─────────────────────────────────────────
        전시관(s3~s10)만 세로 연속 스크롤로 읽고,
@@ -1453,31 +1479,107 @@
     html.m .slide.z-page{ display:none; }
     html.m .slide.z-page.active{
       display:flex;
-      animation:mpgIn .34s cubic-bezier(.22,.8,.3,1) both;
+      animation:mpgIn .46s cubic-bezier(.2,.9,.28,1) both;
     }
     html.m .slide.z-hall{ display:none; }
     html.m.in-hall .slide.z-hall{ display:flex; }
+    /* 페이지가 아래에서 밀려 올라오며 다음 장으로 바뀐다 */
     @keyframes mpgIn{
-      from{ opacity:0; transform:translate3d(0,16px,0); }
+      from{ opacity:0; transform:translate3d(0,calc(44px * var(--m-u)),0); }
+      60%{ opacity:1; }
       to{ opacity:1; transform:none; }
     }
+    /* 이전 장으로 돌아갈 때는 위에서 내려오며 바뀐다 (방향을 눈으로 구분) */
+    html.m .slide.z-page.active.mpg-back{ animation:mpgBack .46s cubic-bezier(.2,.9,.28,1) both; }
+    @keyframes mpgBack{
+      from{ opacity:0; transform:translate3d(0,calc(-44px * var(--m-u)),0); }
+      60%{ opacity:1; }
+      to{ opacity:1; transform:none; }
+    }
+
+    /* ── 하단 '다음 장' 진행 표시 (페이지형 장 전용) ───────────────
+       현재 장 / 전체 장, 덱 진행률, 다음 장 이름을 한 줄로 보여 준다.
+       누르면 다음 장으로 넘어가고, 넘어간 장은 항상 맨 위에서 시작한다. */
+    #mnext{ display:none; }
+    html.m #mnext{
+      position:fixed;
+      left:calc(16px * var(--m-u)); right:calc(16px * var(--m-u));
+      bottom:calc(14px * var(--m-u));
+      bottom:calc(14px * var(--m-u) + env(safe-area-inset-bottom, 0px));
+      z-index:62;
+      display:flex; align-items:center; gap:calc(10px * var(--m-u));
+      padding:calc(10px * var(--m-u)) calc(14px * var(--m-u));
+      border:calc(1px * var(--m-u)) solid rgba(255,255,255,.16);
+      border-radius:calc(14px * var(--m-u));
+      background:rgba(22,20,18,.9);
+      color:#f2eee5;
+      font-family:inherit; text-align:left;
+      cursor:pointer;
+      touch-action:none;            /* 바 위에서 위로 미는 제스처를 페이지 스크롤에 빼앗기지 않게 */
+      -webkit-user-select:none; user-select:none;
+      visibility:visible;
+      -webkit-backdrop-filter:blur(10px);
+      backdrop-filter:blur(10px);
+      box-shadow:0 calc(10px * var(--m-u)) calc(28px * var(--m-u)) rgba(0,0,0,.32);
+      transition:opacity .25s ease, transform .25s ease, visibility .25s;
+    }
+    /* PC 미리보기 : 폰 화면(402px) 안쪽에만 놓이도록 가운데 정렬 */
+    html.m.preview #mnext{
+      left:0; right:0;
+      width:calc(370px * var(--m-u));
+      margin-left:auto; margin-right:auto;
+    }
+    html.m.in-hall #mnext,
+    html.m.zoom-open #mnext,
+    html.m.at-end #mnext{ opacity:0; transform:translate3d(0,calc(10px * var(--m-u)),0); pointer-events:none; visibility:hidden; }
+    html.m #mnext .mn-count{
+      flex:none; font-size:calc(11px * var(--m-u)); font-weight:800;
+      letter-spacing:.12em; color:#f6c9a9;
+    }
+    html.m #mnext .mn-count b{ font-size:calc(15px * var(--m-u)); color:#fff; }
+    html.m #mnext .mn-rail{
+      flex:1; height:calc(3px * var(--m-u)); min-width:calc(32px * var(--m-u));
+      border-radius:999px; background:rgba(255,255,255,.16); overflow:hidden;
+    }
+    html.m #mnext .mn-rail i{
+      display:block; height:100%; width:0; border-radius:999px;
+      background:linear-gradient(90deg,var(--orange) 0%,#f09a5f 100%);
+      transition:width .5s cubic-bezier(.2,.8,.3,1);
+    }
+    html.m #mnext .mn-go{
+      flex:none; display:flex; align-items:center; gap:calc(5px * var(--m-u));
+      font-size:calc(11.5px * var(--m-u)); font-weight:800; letter-spacing:.04em;
+      color:#fff; white-space:nowrap;
+    }
+    html.m #mnext .mn-go svg{
+      width:calc(13px * var(--m-u)); height:calc(13px * var(--m-u));
+      animation:mnBob 1.5s ease-in-out infinite;
+    }
+    @keyframes mnBob{
+      0%,100%{ transform:translateY(0); opacity:.55; }
+      50%{ transform:translateY(calc(3px * var(--m-u))); opacity:1; }
+    }
+    /* 아직 페이지 끝에 닿지 않았을 때 : '끝까지' 안내를 주황색으로 강조 */
+    html.m.m-gate #mnext{ border-color:rgba(232,90,42,.5); }
+    html.m.m-gate #mnext .mn-go-t{ color:#f6c9a9; }
+    html.m.m-gate #mnext .mn-go svg{ animation-duration:.7s; }
 
     /* 구역 경계 : 스크롤 구역의 처음/끝에서 페이지로 넘어가는 버튼 */
     .m-zone{ display:none; }
     html.m .m-zone{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      width:100%; margin:0; padding:14px 2px;
-      border:0; border-top:1px solid var(--line); background:none;
-      font-family:inherit; font-size:12px; font-weight:800;
+      display:flex; align-items:center; justify-content:space-between; gap:calc(10px * var(--m-u));
+      width:100%; margin:0; padding:calc(14px * var(--m-u)) calc(2px * var(--m-u));
+      border:0; border-top:calc(1px * var(--m-u)) solid var(--line); background:none;
+      font-family:inherit; font-size:calc(12px * var(--m-u)); font-weight:800;
       letter-spacing:.01em; color:var(--ink-soft); text-align:left;
       cursor:pointer;
     }
     html.m .m-zone b{ color:var(--orange); font-weight:800; }
     html.m .m-zone.top{
-      margin-bottom:20px; padding-top:0; padding-bottom:14px;
-      border-top:0; border-bottom:1px solid var(--line);
+      margin-bottom:calc(20px * var(--m-u)); padding-top:0; padding-bottom:calc(14px * var(--m-u));
+      border-top:0; border-bottom:calc(1px * var(--m-u)) solid var(--line);
     }
-    html.m .m-zone.end{ margin-top:28px; }
+    html.m .m-zone.end{ margin-top:calc(28px * var(--m-u)); }
     html.m .m-zone:active{ color:var(--orange); }
 
     html.m .slide .fade,
@@ -1496,84 +1598,84 @@
 
     /* 진행 UI : 상단 고정 진행바만 남김 */
     html.m #hud{ inset:0 0 auto 0; }
-    html.m #bar{ height:3px; background:rgba(0,0,0,.1); }
+    html.m #bar{ height:calc(3px * var(--m-u)); background:rgba(0,0,0,.1); }
     @media (min-width:440px){
-      html.m.preview #hud{ left:calc(50% - 201px); right:calc(50% - 201px); }
-      html.m.preview #axis{ left:calc(50% - 185px); }
+      html.m.preview #hud{ left:calc(50% - 201px * var(--m-u)); right:calc(50% - 201px * var(--m-u)); }
+      html.m.preview #axis{ left:calc(50% - 185px * var(--m-u)); }
       /* 미리보기에서도 상세 보기는 폰 화면 폭에만 */
-      html.m.preview #zoom{ left:calc(50% - 201px); right:auto; width:402px; }
+      html.m.preview #zoom{ left:calc(50% - 201px * var(--m-u)); right:auto; width:calc(402px * var(--m-u)); }
     }
     html.m .ctrl.left,
     html.m .ctrl.right,
     html.m #hint{ display:none; }
 
     /* 공통 타이포 */
-    html.m .kicker{ font-size:10.5px; letter-spacing:.16em; }
-    html.m .hall-title{ margin-top:8px; font-size:25px; line-height:1.24; }
-    html.m .c-kicker{ font-size:12px; }
+    html.m .kicker{ font-size:calc(10.5px * var(--m-u)); letter-spacing:.16em; }
+    html.m .hall-title{ margin-top:calc(8px * var(--m-u)); font-size:calc(25px * var(--m-u)); line-height:1.24; }
+    html.m .c-kicker{ font-size:calc(12px * var(--m-u)); }
 
     /* 전시관 헤더 (폰) : 요약 + 기간/기체 칩 */
     html.m .hall-head{ display:block; }
-    html.m .hall-title{ font-size:23px; }
-    html.m .hall-lead{ margin-top:10px; max-width:none; font-size:13.5px; line-height:1.62; }
+    html.m .hall-title{ font-size:calc(23px * var(--m-u)); }
+    html.m .hall-lead{ margin-top:calc(10px * var(--m-u)); max-width:none; font-size:calc(13.5px * var(--m-u)); line-height:1.62; }
     html.m .hall-meta{
-      margin-top:14px; padding:0; border:0;
-      flex-direction:row; flex-wrap:wrap; gap:6px;
+      margin-top:calc(14px * var(--m-u)); padding:0; border:0;
+      flex-direction:row; flex-wrap:wrap; gap:calc(6px * var(--m-u));
       white-space:normal;
     }
     html.m .hall-meta div{
-      gap:6px; padding:5px 10px 6px;
-      font-size:12px;
+      gap:calc(6px * var(--m-u)); padding:calc(5px * var(--m-u)) calc(10px * var(--m-u)) calc(6px * var(--m-u));
+      font-size:calc(12px * var(--m-u));
       background:rgba(47,46,42,.055);
-      border-radius:999px;
+      border-radius:calc(999px * var(--m-u));
     }
-    html.m .hall-meta dt{ min-width:0; font-size:9px; letter-spacing:.1em; }
+    html.m .hall-meta dt{ min-width:0; font-size:calc(9px * var(--m-u)); letter-spacing:.1em; }
 
     /* 표지 */
-    html.m .cover{ justify-content:center; padding-top:30px; }
-    html.m .cover-top{ flex-direction:column; align-items:flex-start; gap:5px; font-size:10px; letter-spacing:.1em; white-space:normal; }
-    html.m .cover-body{ margin:26px 0 28px; padding-top:0; }
-    html.m .cover-eyebrow{ font-size:14px; }
-    html.m .cover-title{ margin:12px 0 14px; font-size:36px; line-height:1.18; }
-    html.m .cover-sub{ font-size:13.5px; line-height:1.55; }
+    html.m .cover{ justify-content:center; padding-top:calc(30px * var(--m-u)); }
+    html.m .cover-top{ flex-direction:column; align-items:flex-start; gap:calc(5px * var(--m-u)); font-size:calc(10px * var(--m-u)); letter-spacing:.1em; white-space:normal; }
+    html.m .cover-body{ margin:calc(26px * var(--m-u)) 0 calc(28px * var(--m-u)); padding-top:0; }
+    html.m .cover-eyebrow{ font-size:calc(14px * var(--m-u)); }
+    html.m .cover-title{ margin:calc(12px * var(--m-u)) 0 calc(14px * var(--m-u)); font-size:calc(36px * var(--m-u)); line-height:1.18; }
+    html.m .cover-sub{ font-size:calc(13.5px * var(--m-u)); line-height:1.55; }
     /* 표지 타임라인 → 점선만 (라벨 없음) */
-    html.m .cover-tl{ gap:0; height:18px; margin-top:20px; padding-bottom:0; }
-    html.m .cover-tl::before{ left:0; right:0; top:8px; height:2px; }
-    html.m .ct{ align-items:center !important; justify-content:center; height:18px; padding:0; }
+    html.m .cover-tl{ gap:0; height:calc(18px * var(--m-u)); margin-top:calc(20px * var(--m-u)); padding-bottom:0; }
+    html.m .cover-tl::before{ left:0; right:0; top:calc(8px * var(--m-u)); height:calc(2px * var(--m-u)); }
+    html.m .ct{ align-items:center !important; justify-content:center; height:calc(18px * var(--m-u)); padding:0; }
     html.m .ct b{ display:none; }
-    html.m .ct i{ position:static; width:10px; height:10px; margin:0; }
-    html.m .ct.hot i{ position:static; width:13px; height:13px; margin:0; }
+    html.m .ct i{ position:static; width:calc(10px * var(--m-u)); height:calc(10px * var(--m-u)); margin:0; }
+    html.m .ct.hot i{ position:static; width:calc(13px * var(--m-u)); height:calc(13px * var(--m-u)); margin:0; }
 
     /* 요약 : 폰 화면에서는 내용을 세로 중앙에 (시간축 없음) */
-    html.m .summary{ justify-content:center; padding-bottom:44px; }
-    html.m .summary-title{ font-size:25px; }
-    html.m .summary .rule{ margin-top:24px; }
-    html.m .summary-grid{ grid-template-columns:1fr 1fr; gap:24px 16px; margin-top:24px; }
-    html.m .stat .num{ font-size:58px; }
-    html.m .stat .num small{ font-size:16px; margin-left:4px; }
-    html.m .stat .cap{ margin-top:10px; font-size:13px; line-height:1.4; }
-    html.m .summary-foot{ margin:30px 0 0; padding-top:20px; font-size:14.5px; line-height:1.5; }
+    html.m .summary{ justify-content:center; padding-bottom:calc(44px * var(--m-u)); }
+    html.m .summary-title{ font-size:calc(25px * var(--m-u)); }
+    html.m .summary .rule{ margin-top:calc(24px * var(--m-u)); }
+    html.m .summary-grid{ grid-template-columns:1fr 1fr; gap:calc(24px * var(--m-u)) calc(16px * var(--m-u)); margin-top:calc(24px * var(--m-u)); }
+    html.m .stat .num{ font-size:calc(58px * var(--m-u)); }
+    html.m .stat .num small{ font-size:calc(16px * var(--m-u)); margin-left:calc(4px * var(--m-u)); }
+    html.m .stat .cap{ margin-top:calc(10px * var(--m-u)); font-size:calc(13px * var(--m-u)); line-height:1.4; }
+    html.m .summary-foot{ margin:calc(30px * var(--m-u)) 0 0; padding-top:calc(20px * var(--m-u)); font-size:calc(14.5px * var(--m-u)); line-height:1.5; }
 
     /* 과제 개요 : 3단 → 세로 스택 */
-    html.m .overview{ justify-content:flex-start; padding-bottom:44px; }
+    html.m .overview{ justify-content:flex-start; padding-bottom:calc(44px * var(--m-u)); }
     html.m .ovw-head{ display:block; }
-    html.m .ovw-title{ margin-top:8px; font-size:25px; line-height:1.24; }
-    html.m .ovw-tag{ margin-top:10px; text-align:left; font-size:10.5px; letter-spacing:.14em; }
-    html.m .overview .ovw-grid{ margin-top:22px; }
-    html.m .ovw-grid{ grid-template-columns:1fr; gap:24px; }
-    html.m .ovw-col{ padding-top:15px; border-top-width:2px; }
-    html.m .ovw-no{ font-size:10px; }
-    html.m .ovw-col h3{ margin-top:6px; font-size:19px; }
+    html.m .ovw-title{ margin-top:calc(8px * var(--m-u)); font-size:calc(25px * var(--m-u)); line-height:1.24; }
+    html.m .ovw-tag{ margin-top:calc(10px * var(--m-u)); text-align:left; font-size:calc(10.5px * var(--m-u)); letter-spacing:.14em; }
+    html.m .overview .ovw-grid{ margin-top:calc(22px * var(--m-u)); }
+    html.m .ovw-grid{ grid-template-columns:1fr; gap:calc(24px * var(--m-u)); }
+    html.m .ovw-col{ padding-top:calc(15px * var(--m-u)); border-top-width:calc(2px * var(--m-u)); }
+    html.m .ovw-no{ font-size:calc(10px * var(--m-u)); }
+    html.m .ovw-col h3{ margin-top:calc(6px * var(--m-u)); font-size:calc(19px * var(--m-u)); }
     html.m .ovw-col p,
-    html.m .ovw-list li{ font-size:13.5px; line-height:1.66; }
-    html.m .ovw-col p{ margin-top:11px; }
-    html.m .ovw-list{ margin-top:9px; gap:8px; }
-    html.m .ovw-list li{ padding-left:12px; }
-    html.m .ovw-list li::before{ top:8px; width:4px; height:4px; }
-    html.m .ovw-foot{ margin-top:22px; padding-top:16px; font-size:13px; line-height:1.55; border-top-width:1.5px; }
+    html.m .ovw-list li{ font-size:calc(13.5px * var(--m-u)); line-height:1.66; }
+    html.m .ovw-col p{ margin-top:calc(11px * var(--m-u)); }
+    html.m .ovw-list{ margin-top:calc(9px * var(--m-u)); gap:calc(8px * var(--m-u)); }
+    html.m .ovw-list li{ padding-left:calc(12px * var(--m-u)); }
+    html.m .ovw-list li::before{ top:calc(8px * var(--m-u)); width:calc(4px * var(--m-u)); height:calc(4px * var(--m-u)); }
+    html.m .ovw-foot{ margin-top:calc(22px * var(--m-u)); padding-top:calc(16px * var(--m-u)); font-size:calc(13px * var(--m-u)); line-height:1.55; border-top-width:calc(1.5px * var(--m-u)); }
 
     /* 전시관 : 페이지마다 끊기던 세로 레일을 없애고, 화면 왼쪽 고정축 하나를 전 구간 연속 시간축으로 */
-    html.m .hall-body{ flex:none; display:block; padding:22px 0 0; }
+    html.m .hall-body{ flex:none; display:block; padding:calc(22px * var(--m-u)) 0 0; }
     html.m .tl-grid{ display:block; }
     html.m .rail,
     html.m .tl-cont,
@@ -1582,59 +1684,59 @@
       position:relative;
       display:flex;
       flex-direction:column;
-      margin:0 0 28px;
+      margin:0 0 calc(28px * var(--m-u));
     }
     html.m .tl-col > .tl-label{
       order:1;
-      height:auto; padding:0 0 9px; text-align:left;
-      font-size:13px; line-height:1.4;
+      height:auto; padding:0 0 calc(9px * var(--m-u)); text-align:left;
+      font-size:calc(13px * var(--m-u)); line-height:1.4;
     }
     html.m .tl-col > .tl-card,
     html.m .tl-col > .tl-photo{ order:2; }
-    /* 점은 고정축 위에 정확히 얹는다 (축: left 16px / 3px) */
+    /* 점은 고정축 위에 정확히 얹는다 (축: left calc(16px * var(--m-u)) / calc(3px * var(--m-u))) */
     html.m .tl-col > .dot{
       position:absolute;
-      left:-39px; top:1px;
-      width:14px; height:14px; margin:0;
+      left:calc(-39px * var(--m-u)); top:calc(1px * var(--m-u));
+      width:calc(14px * var(--m-u)); height:calc(14px * var(--m-u)); margin:0;
     }
-    html.m .tl-col > .dot.gy{ left:-38px; top:2px; width:12px; height:12px; margin:0; }
-    html.m .tl-card{ padding:14px 15px; min-height:0 !important; }
-    html.m .tl-card.hot{ padding:14px; }
-    html.m .tl-card .c-kicker{ font-size:11.5px; }
-    html.m .tl-card h3{ margin:6px 0 7px; font-size:16.5px; }
-    html.m .tl-card p{ font-size:13px; line-height:1.55; }
-    html.m .tl-rows{ margin-top:12px; padding-top:11px; gap:6px; }
-    html.m .tl-rows li{ grid-template-columns:max-content 1fr; gap:9px; font-size:12.5px; line-height:1.5; }
-    html.m .tl-rows b{ font-size:9.5px; padding-top:3px; }
-    html.m .tl-photo{ padding:10px 10px 14px; }
-    html.m .tl-photo .ph{ height:150px; }
-    html.m .tl-photo .cap{ padding:11px 4px 0; }
-    html.m .tl-photo .cap h3{ font-size:16.5px; margin:6px 0 6px; }
-    html.m .tl-photo .cap p{ font-size:13px; }
-    html.m .tl-card.wide{ flex-direction:column; align-items:stretch; gap:12px; padding:10px 10px 14px; }
-    html.m .tl-card.wide .thumb{ width:100%; height:140px; }
-    html.m .tl-card.wide .txt{ padding:0 4px 2px; }
-    html.m .tl-card.wide h3{ font-size:16px; }
-    html.m .tl-card .thumb{ height:170px; margin:0 0 12px; }
+    html.m .tl-col > .dot.gy{ left:calc(-38px * var(--m-u)); top:calc(2px * var(--m-u)); width:calc(12px * var(--m-u)); height:calc(12px * var(--m-u)); margin:0; }
+    html.m .tl-card{ padding:calc(14px * var(--m-u)) calc(15px * var(--m-u)); min-height:0 !important; }
+    html.m .tl-card.hot{ padding:calc(14px * var(--m-u)); }
+    html.m .tl-card .c-kicker{ font-size:calc(11.5px * var(--m-u)); }
+    html.m .tl-card h3{ margin:calc(6px * var(--m-u)) 0 calc(7px * var(--m-u)); font-size:calc(16.5px * var(--m-u)); }
+    html.m .tl-card p{ font-size:calc(13px * var(--m-u)); line-height:1.55; }
+    html.m .tl-rows{ margin-top:calc(12px * var(--m-u)); padding-top:calc(11px * var(--m-u)); gap:calc(6px * var(--m-u)); }
+    html.m .tl-rows li{ grid-template-columns:max-content 1fr; gap:calc(9px * var(--m-u)); font-size:calc(12.5px * var(--m-u)); line-height:1.5; }
+    html.m .tl-rows b{ font-size:calc(9.5px * var(--m-u)); padding-top:calc(3px * var(--m-u)); }
+    html.m .tl-photo{ padding:calc(10px * var(--m-u)) calc(10px * var(--m-u)) calc(14px * var(--m-u)); }
+    html.m .tl-photo .ph{ height:calc(150px * var(--m-u)); }
+    html.m .tl-photo .cap{ padding:calc(11px * var(--m-u)) calc(4px * var(--m-u)) 0; }
+    html.m .tl-photo .cap h3{ font-size:calc(16.5px * var(--m-u)); margin:calc(6px * var(--m-u)) 0 calc(6px * var(--m-u)); }
+    html.m .tl-photo .cap p{ font-size:calc(13px * var(--m-u)); }
+    html.m .tl-card.wide{ flex-direction:column; align-items:stretch; gap:calc(12px * var(--m-u)); padding:calc(10px * var(--m-u)) calc(10px * var(--m-u)) calc(14px * var(--m-u)); }
+    html.m .tl-card.wide .thumb{ width:100%; height:calc(140px * var(--m-u)); }
+    html.m .tl-card.wide .txt{ padding:0 calc(4px * var(--m-u)) calc(2px * var(--m-u)); }
+    html.m .tl-card.wide h3{ font-size:calc(16px * var(--m-u)); }
+    html.m .tl-card .thumb{ height:calc(170px * var(--m-u)); margin:0 0 calc(12px * var(--m-u)); }
     html.m .tl-card.hot .thumb,
-    html.m .tl-card.bad .thumb{ height:152px; }
+    html.m .tl-card.bad .thumb{ height:calc(152px * var(--m-u)); }
 
     /* 매트릭스 : 표 → 카드 */
-    html.m .matrix-table{ display:block; margin-top:18px; font-size:13px; }
+    html.m .matrix-table{ display:block; margin-top:calc(18px * var(--m-u)); font-size:calc(13px * var(--m-u)); }
     html.m .matrix-table thead{ display:none; }
     html.m .matrix-table tbody{ display:block; }
     html.m .matrix-table tbody tr{
       display:block;
-      margin-bottom:10px;
-      padding:5px 0;
-      border:1px solid var(--line);
+      margin-bottom:calc(10px * var(--m-u));
+      padding:calc(5px * var(--m-u)) 0;
+      border:calc(1px * var(--m-u)) solid var(--line);
       background:var(--paper);
     }
-    html.m .matrix-table tbody td{ display:block; padding:6px 14px; border:0; font-size:13px; line-height:1.5; }
+    html.m .matrix-table tbody td{ display:block; padding:calc(6px * var(--m-u)) calc(14px * var(--m-u)); border:0; font-size:calc(13px * var(--m-u)); line-height:1.5; }
     html.m .matrix-table tbody td::before{
       display:block;
-      margin-bottom:1px;
-      font-size:9px;
+      margin-bottom:calc(1px * var(--m-u));
+      font-size:calc(9px * var(--m-u));
       font-weight:800;
       letter-spacing:.14em;
       color:#a19b90;
@@ -1644,31 +1746,31 @@
     html.m .matrix-table tbody td:nth-child(2)::before{ content:"비행 일자 / 횟수"; }
     html.m .matrix-table tbody td:nth-child(3)::before{ content:"발생 문제 및 파손 내역"; }
     html.m .matrix-table tbody td:nth-child(4)::before{ content:"공학적 해결 및 설계 반영"; }
-    html.m .matrix-table tbody td.unit{ font-size:15px; }
+    html.m .matrix-table tbody td.unit{ font-size:calc(15px * var(--m-u)); }
 
     /* 부스 전략 */
-    html.m .dual{ grid-template-columns:1fr; gap:12px; margin-top:20px; }
-    html.m .panel{ min-height:0; padding:20px 18px; }
-    html.m .panel-head svg{ width:32px; height:32px; }
-    html.m .panel h3{ margin:12px 0 12px; font-size:19px; }
-    html.m .panel ul{ gap:8px; }
-    html.m .panel li{ font-size:13px; line-height:1.55; }
+    html.m .dual{ grid-template-columns:1fr; gap:calc(12px * var(--m-u)); margin-top:calc(20px * var(--m-u)); }
+    html.m .panel{ min-height:0; padding:calc(20px * var(--m-u)) calc(18px * var(--m-u)); }
+    html.m .panel-head svg{ width:calc(32px * var(--m-u)); height:calc(32px * var(--m-u)); }
+    html.m .panel h3{ margin:calc(12px * var(--m-u)) 0 calc(12px * var(--m-u)); font-size:calc(19px * var(--m-u)); }
+    html.m .panel ul{ gap:calc(8px * var(--m-u)); }
+    html.m .panel li{ font-size:calc(13px * var(--m-u)); line-height:1.55; }
 
     /* 최종 전시물 */
-    html.m .deliver-grid{ grid-template-columns:1fr; gap:10px; margin-top:20px; }
-    html.m .d-card{ min-height:0; padding:18px; }
-    html.m .d-card svg{ width:30px; height:30px; }
-    html.m .d-card h3{ margin-top:12px; font-size:18px; }
-    html.m .d-card p{ margin-top:7px; font-size:13px; line-height:1.55; }
+    html.m .deliver-grid{ grid-template-columns:1fr; gap:calc(10px * var(--m-u)); margin-top:calc(20px * var(--m-u)); }
+    html.m .d-card{ min-height:0; padding:calc(18px * var(--m-u)); }
+    html.m .d-card svg{ width:calc(30px * var(--m-u)); height:calc(30px * var(--m-u)); }
+    html.m .d-card h3{ margin-top:calc(12px * var(--m-u)); font-size:calc(18px * var(--m-u)); }
+    html.m .d-card p{ margin-top:calc(7px * var(--m-u)); font-size:calc(13px * var(--m-u)); line-height:1.55; }
 
     /* 클로징 */
-    html.m .closing{ padding:56px 24px; justify-content:center; }
+    html.m .closing{ padding:calc(56px * var(--m-u)) calc(24px * var(--m-u)); justify-content:center; }
     /* align-items:center 상태에서는 제목·문단이 내용 폭만큼 늘어나 화면을 넘칠 수 있다 */
     html.m .closing h2, html.m .closing p{ max-width:100%; }
-    html.m .closing .kicker{ font-size:10.5px; letter-spacing:.16em; }
-    html.m .closing h2{ margin:18px 0; font-size:31px; line-height:1.26; }
-    html.m .closing p{ font-size:13.5px; line-height:1.6; }
-    html.m .closing .dash{ width:64px; margin-top:26px; }
+    html.m .closing .kicker{ font-size:calc(10.5px * var(--m-u)); letter-spacing:.16em; }
+    html.m .closing h2{ margin:calc(18px * var(--m-u)) 0; font-size:calc(31px * var(--m-u)); line-height:1.26; }
+    html.m .closing p{ font-size:calc(13.5px * var(--m-u)); line-height:1.6; }
+    html.m .closing .dash{ width:calc(64px * var(--m-u)); margin-top:calc(26px * var(--m-u)); }
 
     /* 표지 : 모바일에서는 아래쪽 띠로 */
     html.m .cover-visual{ width:100%; height:44%; top:auto; bottom:0; }
@@ -1679,76 +1781,78 @@
 
     /* 보관 방식 비교 3D */
     html.m .st3-head{ display:block; }
-    html.m .st3-title{ font-size:27px; line-height:1.24; }
-    html.m .st3-lead{ max-width:none; font-size:13.5px; line-height:1.6; }
+    html.m .st3-title{ font-size:calc(27px * var(--m-u)); line-height:1.24; }
+    html.m .st3-lead{ max-width:none; font-size:calc(13.5px * var(--m-u)); line-height:1.6; }
     html.m .st3-meta{
       flex-direction:row;
-      gap:18px;
-      margin-top:18px;
-      padding:12px 0 0;
+      gap:calc(18px * var(--m-u));
+      margin-top:calc(18px * var(--m-u));
+      padding:calc(12px * var(--m-u)) 0 0;
       border-left:0;
-      border-top:2px solid var(--ink);
+      border-top:calc(2px * var(--m-u)) solid var(--ink);
     }
-    html.m .st3-meta dt{ font-size:9.5px; }
-    html.m .st3-meta dd{ font-size:16px; }
-    html.m .st3-body{ grid-template-columns:1fr; gap:16px; margin-top:18px; }
-    html.m .st3-view{ height:330px; }
-    html.m .st3-tag{ font-size:9.5px; padding:5px 8px; }
-    html.m .st3-lbl{ font-size:9.5px; }
-    html.m .st3-cmp .v{ font-size:31px; }
-    html.m .st3-list li{ grid-template-columns:56px 1fr; gap:10px; font-size:12.5px; }
-    html.m .st3-list b{ font-size:10px; }
-    html.m .st3-flow span{ font-size:10.5px; padding:8px 2px; }
-    html.m .st3-flow b{ font-size:10.5px; }
-    html.m .st3-note{ font-size:11px; }
+    html.m .st3-meta dt{ font-size:calc(9.5px * var(--m-u)); }
+    html.m .st3-meta dd{ font-size:calc(16px * var(--m-u)); }
+    html.m .st3-body{ grid-template-columns:1fr; gap:calc(16px * var(--m-u)); margin-top:calc(18px * var(--m-u)); }
+    html.m .st3-view{ height:calc(330px * var(--m-u)); }
+    html.m .st3-tag{ font-size:calc(9.5px * var(--m-u)); padding:calc(5px * var(--m-u)) calc(8px * var(--m-u)); }
+    html.m .st3-lbl{ font-size:calc(9.5px * var(--m-u)); }
+    html.m .st3-cmp .v{ font-size:calc(31px * var(--m-u)); }
+    html.m .st3-list li{ grid-template-columns:calc(56px * var(--m-u)) 1fr; gap:calc(10px * var(--m-u)); font-size:calc(12.5px * var(--m-u)); }
+    html.m .st3-list b{ font-size:calc(10px * var(--m-u)); }
+    html.m .st3-flow span{ font-size:calc(10.5px * var(--m-u)); padding:calc(8px * var(--m-u)) calc(2px * var(--m-u)); }
+    html.m .st3-flow b{ font-size:calc(10.5px * var(--m-u)); }
+    html.m .st3-note{ font-size:calc(11px * var(--m-u)); }
 
     /* 단가 비교 */
     html.m .pr-head{ display:block; }
-    html.m .pr-body{ grid-template-columns:1fr; gap:14px; margin-top:18px; }
-    html.m .pr-bars{ gap:16px; padding:16px 16px 18px; }
-    html.m .pr-row .t{ gap:10px; }
-    html.m .pr-row .nm{ font-size:13.5px; white-space:normal; }
-    html.m .pr-row .nm small{ display:block; margin:3px 0 0; font-size:10.5px; }
-    html.m .pr-row .v{ font-size:18px; }
-    html.m .pr-row .v small{ font-size:10.5px; margin-left:2px; }
-    html.m .pr-row.our .v{ font-size:25px; }
-    html.m .pr-bar{ gap:8px; margin-top:9px; }
-    html.m .pr-bar .pr-rail{ height:10px; }
-    html.m .pr-bar b{ min-width:38px; font-size:10.5px; }
-    html.m .pr-scale{ font-size:9px; margin-top:-2px; padding-right:46px; }
-    html.m .pr-quote{ margin-top:4px; }
-    html.m .pr-quote .m{ font-size:11px; }
-    html.m .pr-quote .b{ margin-top:5px; font-size:19px; }
-    html.m .pr-quote .s{ margin-top:6px; font-size:10.5px; }
-    html.m .pr-swarm{ padding-top:14px; }
-    html.m .pr-split{ padding-top:12px; }
-    html.m .pr-split .h{ font-size:10px; }
-    html.m .pr-split .track{ height:9px; margin-top:7px; }
-    html.m .pr-split .lg{ font-size:9.5px; gap:8px; margin-top:6px; }
-    html.m .pr-swarm-head{ font-size:11.5px; }
-    html.m .pr-swarm-head b{ font-size:16px; }
-    html.m .pr-icons{ grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; margin-top:9px; }
-    html.m .pr-icons span{ height:30px; }
-    html.m .pr-icons svg{ width:13px; height:13px; }
-    html.m .pr-table{ padding:16px 16px 14px; }
-    html.m .pr-th{ font-size:10.5px; padding-bottom:8px; }
-    html.m .pr-table ul{ gap:6px; margin-top:10px; font-size:11.5px; }
-    html.m .pr-total{ padding-top:11px; }
-    html.m .pr-total span{ font-size:11px; }
-    html.m .pr-total b{ font-size:20px; }
-    html.m .pr-foot{ display:block; margin-top:14px; padding-top:10px; font-size:10.5px; line-height:1.55; }
+    html.m .pr-body{ grid-template-columns:1fr; gap:calc(14px * var(--m-u)); margin-top:calc(18px * var(--m-u)); }
+    html.m .pr-bars{ gap:calc(16px * var(--m-u)); padding:calc(16px * var(--m-u)) calc(16px * var(--m-u)) calc(18px * var(--m-u)); }
+    html.m .pr-row .t{ gap:calc(10px * var(--m-u)); }
+    html.m .pr-row .nm{ font-size:calc(13.5px * var(--m-u)); white-space:normal; }
+    html.m .pr-row .nm small{ display:block; margin:calc(3px * var(--m-u)) 0 0; font-size:calc(10.5px * var(--m-u)); }
+    html.m .pr-row .v{ font-size:calc(18px * var(--m-u)); }
+    html.m .pr-row .v small{ font-size:calc(10.5px * var(--m-u)); margin-left:calc(2px * var(--m-u)); }
+    html.m .pr-row.our .v{ font-size:calc(25px * var(--m-u)); }
+    html.m .pr-bar{ gap:calc(8px * var(--m-u)); margin-top:calc(9px * var(--m-u)); }
+    html.m .pr-bar .pr-rail{ height:calc(10px * var(--m-u)); }
+    html.m .pr-bar b{ min-width:calc(38px * var(--m-u)); font-size:calc(10.5px * var(--m-u)); }
+    html.m .pr-scale{ font-size:calc(9px * var(--m-u)); margin-top:calc(-2px * var(--m-u)); padding-right:calc(46px * var(--m-u)); }
+    html.m .pr-quote{ margin-top:calc(4px * var(--m-u)); }
+    html.m .pr-quote .m{ font-size:calc(11px * var(--m-u)); }
+    html.m .pr-quote .b{ margin-top:calc(5px * var(--m-u)); font-size:calc(19px * var(--m-u)); }
+    html.m .pr-quote .s{ margin-top:calc(6px * var(--m-u)); font-size:calc(10.5px * var(--m-u)); }
+    html.m .pr-swarm{ padding-top:calc(14px * var(--m-u)); }
+    html.m .pr-split{ padding-top:calc(12px * var(--m-u)); }
+    html.m .pr-split .h{ font-size:calc(10px * var(--m-u)); }
+    html.m .pr-split .track{ height:calc(9px * var(--m-u)); margin-top:calc(7px * var(--m-u)); }
+    html.m .pr-split .lg{ font-size:calc(9.5px * var(--m-u)); gap:calc(8px * var(--m-u)); margin-top:calc(6px * var(--m-u)); }
+    html.m .pr-swarm-head{ font-size:calc(11.5px * var(--m-u)); }
+    html.m .pr-swarm-head b{ font-size:calc(16px * var(--m-u)); }
+    html.m .pr-icons{ grid-template-columns:repeat(7,minmax(0,1fr)); gap:calc(5px * var(--m-u)); margin-top:calc(9px * var(--m-u)); }
+    html.m .pr-icons span{ height:calc(30px * var(--m-u)); }
+    html.m .pr-icons svg{ width:calc(13px * var(--m-u)); height:calc(13px * var(--m-u)); }
+    html.m .pr-table{ padding:calc(16px * var(--m-u)) calc(16px * var(--m-u)) calc(14px * var(--m-u)); }
+    html.m .pr-th{ font-size:calc(10.5px * var(--m-u)); padding-bottom:calc(8px * var(--m-u)); }
+    html.m .pr-table ul{ gap:calc(6px * var(--m-u)); margin-top:calc(10px * var(--m-u)); font-size:calc(11.5px * var(--m-u)); }
+    html.m .pr-total{ padding-top:calc(11px * var(--m-u)); }
+    html.m .pr-total span{ font-size:calc(11px * var(--m-u)); }
+    html.m .pr-total b{ font-size:calc(20px * var(--m-u)); }
+    html.m .pr-foot{ display:block; margin-top:calc(14px * var(--m-u)); padding-top:calc(10px * var(--m-u)); font-size:calc(10.5px * var(--m-u)); line-height:1.55; }
     html.m .pr-foot span{ max-width:none; }
-    html.m .pr-foot span + span{ margin-top:5px; }
+    html.m .pr-foot span + span{ margin-top:calc(5px * var(--m-u)); }
+    html.m .pr-basis{ margin-top:calc(14px * var(--m-u)); padding-top:calc(10px * var(--m-u)); font-size:calc(10.5px * var(--m-u)); line-height:1.55; }
+    html.m .pr-basis p + p{ margin-top:calc(4px * var(--m-u)); }
 
     /* 지속 시간축 : 화면 왼쪽 고정 세로축 = 전 구간 연속 시간축 */
     html.m #axis{
       position:fixed;
-      left:16px;
+      left:calc(16px * var(--m-u));
       right:auto;
       top:0;
       bottom:0;
       height:auto;
-      width:3px;
+      width:calc(3px * var(--m-u));
       z-index:45;
     }
     html.m #axis .a-rail{ inset:0; background:rgba(47,46,42,.18); }
@@ -1769,25 +1873,35 @@
     html.m .tl-photo::after{
       content:"＋";
       position:absolute;
-      top:9px; right:11px;
-      font-size:14px;
+      top:calc(9px * var(--m-u)); right:calc(11px * var(--m-u));
+      font-size:calc(14px * var(--m-u));
       font-weight:800;
       line-height:1;
       color:var(--orange);
       opacity:.6;
     }
 
-    /* 타임라인이 없는 장 : 탭하면 다음 장 (1·2페이지 포함) */
+    /* 타임라인이 없는 장 : 아래쪽 탭/하단 바로 다음 장.
+       긴 장은 '끝까지 내린 뒤'에만 넘어가고, 끝에 닿으면 안내 문구가 바뀐다. */
     html.m .slide.tap-next::after{
-      content:"탭하면 다음 장 → · 좌우로 밀어 이동";
+      content:"↓ 끝까지 내린 뒤 탭 = 다음 · ↔ 이동";
       position:absolute;
-      left:0; right:0; bottom:14px;
+      left:0; right:0; bottom:calc(60px * var(--m-u));
+      padding:0 calc(10px * var(--m-u));
       text-align:center;
-      font-size:11px;
+      font-size:calc(11px * var(--m-u));
       font-weight:800;
+      line-height:1.4;
       letter-spacing:.04em;
       color:#a19b90;
       pointer-events:none;
+      z-index:2;
+    }
+    html.m.page-end .slide.tap-next::after{
+      content:"아래쪽 탭/바 = 다음 · ↑ 이전 · ↔ 이동";
+    }
+    html.m.at-end .slide.tap-next::after{
+      content:"마지막 장 · ↑/← 이전";
     }
 
     /* 포인트 확대 (모바일 전체 화면) */
@@ -1807,9 +1921,9 @@
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
       border:0;
-      transform:translateY(24px);
+      transform:translateY(calc(24px * var(--m-u)));
     }
-    /* 열림 상태에서는 24px 오프셋을 걷어내 카드가 화면을 정확히 채우도록 */
+    /* 열림 상태에서는 calc(24px * var(--m-u)) 오프셋을 걷어내 카드가 화면을 정확히 채우도록 */
     html.m.zoom-open .zoom-card,
     html.zoom-open .zoom-card{ transform:none; }
     html.m .zoom-media{
@@ -1820,23 +1934,23 @@
     }
     html.m .zm-img{ height:auto; background:#e9e5db; }
     html.m .zm-img img{ width:100%; height:auto; object-fit:contain; }
-    html.m .zm-cap{ margin:0; padding:10px 18px 0; font-size:11.5px; }
-    html.m .zoom-body{ padding:20px 20px 30px; }
-    html.m .zoom-x{ top:12px; right:12px; background:rgba(255,255,255,.92); }
-    html.m .zoom-hall{ font-size:10px; letter-spacing:.16em; }
-    html.m .zoom-kicker{ margin-top:10px; font-size:11px; }
-    html.m .zoom-body h3{ margin-top:8px; font-size:24px; line-height:1.26; }
-    html.m .zoom-lead{ margin-top:14px; font-size:14px; line-height:1.62; }
-    html.m .zoom-meta{ margin-top:16px; padding-bottom:14px; gap:6px 18px; }
-    html.m .zoom-meta dt{ font-size:10px; }
-    html.m .zoom-meta dd{ font-size:13px; }
-    html.m .zoom-rows{ margin-top:16px; gap:11px; }
+    html.m .zm-cap{ margin:0; padding:calc(10px * var(--m-u)) calc(18px * var(--m-u)) 0; font-size:calc(11.5px * var(--m-u)); }
+    html.m .zoom-body{ padding:calc(20px * var(--m-u)) calc(20px * var(--m-u)) calc(30px * var(--m-u)); }
+    html.m .zoom-x{ top:calc(12px * var(--m-u)); right:calc(12px * var(--m-u)); background:rgba(255,255,255,.92); }
+    html.m .zoom-hall{ font-size:calc(10px * var(--m-u)); letter-spacing:.16em; }
+    html.m .zoom-kicker{ margin-top:calc(10px * var(--m-u)); font-size:calc(11px * var(--m-u)); }
+    html.m .zoom-body h3{ margin-top:calc(8px * var(--m-u)); font-size:calc(24px * var(--m-u)); line-height:1.26; }
+    html.m .zoom-lead{ margin-top:calc(14px * var(--m-u)); font-size:calc(14px * var(--m-u)); line-height:1.62; }
+    html.m .zoom-meta{ margin-top:calc(16px * var(--m-u)); padding-bottom:calc(14px * var(--m-u)); gap:calc(6px * var(--m-u)) calc(18px * var(--m-u)); }
+    html.m .zoom-meta dt{ font-size:calc(10px * var(--m-u)); }
+    html.m .zoom-meta dd{ font-size:calc(13px * var(--m-u)); }
+    html.m .zoom-rows{ margin-top:calc(16px * var(--m-u)); gap:calc(11px * var(--m-u)); }
     html.m .zoom-rows li{ display:block; }
-    html.m .zoom-rows b{ display:block; width:auto; margin-bottom:3px; font-size:10.5px; letter-spacing:.06em; }
-    html.m .zoom-rows span{ font-size:13.5px; line-height:1.55; }
-    html.m .zoom-foot{ margin-top:24px; padding-top:0; gap:8px; }
-    html.m .zoom-foot button{ font-size:12px; padding:11px 14px; }
-    html.m .zoom-foot .zstep{ font-size:11px; letter-spacing:.1em; }
+    html.m .zoom-rows b{ display:block; width:auto; margin-bottom:calc(3px * var(--m-u)); font-size:calc(10.5px * var(--m-u)); letter-spacing:.06em; }
+    html.m .zoom-rows span{ font-size:calc(13.5px * var(--m-u)); line-height:1.55; }
+    html.m .zoom-foot{ margin-top:calc(24px * var(--m-u)); padding-top:0; gap:calc(8px * var(--m-u)); }
+    html.m .zoom-foot button{ font-size:calc(12px * var(--m-u)); padding:calc(11px * var(--m-u)) calc(14px * var(--m-u)); }
+    html.m .zoom-foot .zstep{ font-size:calc(11px * var(--m-u)); letter-spacing:.1em; }
     html.zoom-open body{ overflow:hidden; }
   }
 
@@ -1847,7 +1961,7 @@
   }
 
   /* ---------- 인쇄(PDF 내보내기) ----------
-     16:9 페이지 1장 = 슬라이드 1장. PDF로 저장하면 17페이지짜리 덱이 된다. */
+     16:9 페이지 1장 = 슬라이드 1장. PDF로 저장하면 15페이지짜리 덱이 된다. */
   @media print{
     @page{ size:1200pt 675pt; margin:0; }   /* 1600 × 900 px 와 같은 16:9 */
     html, body{
@@ -1865,10 +1979,11 @@
       width:1600px;
       height:auto;
       transform:none !important;
+      overflow:visible !important;
       box-shadow:none;
       background:none;
     }
-    #axis, #zoom, #hud, #hint, .ctrl, .m-zone{ display:none !important; }
+    #axis, #zoom, #hud, #hint, #mnext, .ctrl, .m-zone{ display:none !important; }
 
     /* 장은 위에서 아래로 차곡차곡 — 넘칠 때 중간에서 잘리지 않고 항상 한 장 = 한 페이지 */
     .slide{
@@ -1971,7 +2086,7 @@
       <h3>활용 방안 및 기대효과</h3>
       <ul class="ovw-list">
         <li>플랫팩<span class="nw">(Flat-pack)</span> 구조로 기존 드론 대비 동일 공간 내 <b>보관·운송 효율을 3~7배</b>(적층 확장 시 수십 배)로 높이고, 현장에서 간편하게 조립해 신속한 전술 운용이 가능함.</li>
-        <li>저비용 골판지 프레임과 최소한의 필수 센서를 채택해 일회성 타격 임무 시 기체 손실 부담을 완화하고, <b>탈부착식 모듈로 핵심 전자부품을 재사용</b>할 수 있음.</li>
+        <li>저비용 골판지 프레임과 최소한의 필수 센서를 채택해 일회성 타격 임무 시 기체 손실 부담을 완화할 수 있음.</li>
         <li>GPS 기반 자율비행 시스템으로 <b>약 7 km의 작전 반경</b>을 확보해, 접근이 어려운 지역의 정찰 및 타격 등 다양한 임무 수행이 기대됨.</li>
       </ul>
     </div>
@@ -2023,7 +2138,7 @@
       <ul class="st3-list fade" style="--d:.36s">
         <li><b>적재 계산</b><span>골판지 2장(3T + 3T = 6 mm)이 기체 1기입니다. 팔레트 1 m까지 쌓으면 286장 = <strong>143기</strong>. 조립체는 날개 폭(약 0.98 m)과 높이가 부피를 정하지만, 전개 시트는 판 두께만 남습니다.</span></li>
         <li><b>트럭 적재</b><span>5톤 트럭 1대에 완성 기체 12대, 또는 플랫팩 팔레트 2단(286기)을 전장품 박스와 함께 실을 수 있습니다.</span></li>
-        <li><b>운용 효과</b><span>전장 모듈(FC 54 g · 모터 85 g · 배터리 274 g, 합 0.53 kg)도 작아 팔레트 옆 박스에 함께 실립니다. 탈부착식이라 기체를 잃어도 회수해 다시 씁니다.</span></li>
+        <li><b>운용 효과</b><span>전장 모듈(FC 54 g · 모터 85 g · 배터리 274 g, 합 0.53 kg)도 작아 팔레트 옆 박스에 함께 실립니다. 동체와 전장을 분리해 적재한 뒤 현장에서 조립합니다.</span></li>
       </ul>
       <div class="st3-flow fade" style="--d:.4s">
         <span>골판지 2장 = 1기</span><b>→</b><span>팔레트 1개 = 143기</span><b>→</b><span>현장 조립</span>
@@ -2033,18 +2148,18 @@
   </div>
 </section>
 
-<!-- ===== 02. 단가 비교 : 같은 예산으로 몇 대 ===== -->
-<section class="slide price" id="s-price" aria-label="단가 비교">
+<!-- ===== 02. 재료비 비교 : 완제품 가격 대비 ===== -->
+<section class="slide price" id="s-price" aria-label="재료비 비교">
   <div class="pr-head st3-head">
     <div>
-      <p class="kicker fade" style="--d:.04s">COST STRUCTURE · UNIT PRICE (BOM)</p>
-      <h2 class="st3-title fade" style="--d:.1s">단가 : 같은 예산이면 1대가 아니라 13대</h2>
-      <p class="st3-lead fade" style="--d:.16s">미국 스위치블레이드 300 1대가 약 800만 원, 이 기체는 부품 실원가 <strong>593,840원</strong>입니다. 같은 예산을 쓰면 1대가 아니라 13대를 만들 수 있습니다. 성능이 같다는 뜻이 아니라, 같은 체급을 같은 돈으로 몇 대까지 확보할 수 있는가의 비교입니다.</p>
+      <p class="kicker fade" style="--d:.04s">COST STRUCTURE · MATERIAL COST (BOM)</p>
+      <h2 class="st3-title fade" style="--d:.1s">재료비 : 완제품 가격의 0.8%</h2>
+      <p class="st3-lead fade" style="--d:.16s">미국 스위치블레이드 300의 FY2023 미 육군 예산상 flyaway 단가는 <strong>52,914달러(약 7,400만 원)</strong>입니다. 이 기체의 부품 재료비는 <strong>593,840원</strong>으로, 완제품 가격의 약 0.5~0.8%입니다. 성능이 같다는 뜻이 아니라, 같은 임무를 같은 돈으로 몇 번까지 준비할 수 있는가의 비교입니다.</p>
     </div>
     <dl class="st3-meta fade" style="--d:.2s">
-      <div><dt>절감률</dt><dd class="or">-92.6%</dd></div>
-      <div><dt>1대 단가</dt><dd>59만 원</dd></div>
-      <div><dt>동일 예산</dt><dd class="bl">13대</dd></div>
+      <div><dt>재료비 비중</dt><dd class="or">0.8%</dd></div>
+      <div><dt>1세트 재료비</dt><dd>59만 원</dd></div>
+      <div><dt>개발비</dt><dd class="bl">별도</dd></div>
     </dl>
   </div>
 
@@ -2053,51 +2168,37 @@
       <div class="pr-chart">
         <div class="pr-row">
           <p class="t">
-            <span class="nm">미국 스위치블레이드 300<small>동급 소형 자폭 고정익 · 완제품</small></span>
-            <span class="v">8,000,000<small>원</small></span>
+            <span class="nm">미국 스위치블레이드 300<small>FY2023 미 육군 예산 · flyaway</small></span>
+            <span class="v">74,079,600<small>원</small></span>
           </p>
           <div class="pr-bar"><div class="pr-rail"><i style="width:100%"></i></div><b>100%</b></div>
         </div>
 
         <div class="pr-row our">
           <p class="t">
-            <span class="nm">이 기체 · 골판지 델타익 1.5 kg<small>부품 실원가 합계</small></span>
+            <span class="nm">이 기체 · 골판지 델타익 1.5 kg<small>부품 재료비 합계</small></span>
             <span class="v">593,840<small>원</small></span>
           </p>
-          <div class="pr-bar our"><div class="pr-rail"><i style="width:7.4%"></i></div><b>7.4%</b></div>
+          <div class="pr-bar our"><div class="pr-rail"><i style="width:0.8%"></i></div><b>0.8%</b></div>
         </div>
 
-        <div class="pr-scale"><span>0</span><span>4,000,000</span><span>8,000,000 원</span></div>
+        <div class="pr-scale"><span>0</span><span>37,000,000</span><span>74,000,000 원</span></div>
       </div>
 
       <p class="pr-quote">
-        <span class="m">같은 예산 800만 원</span>
-        <span class="b">1대 대신 <em>13대</em></span>
-        <span class="s">한 번의 임무가 실패해도 다음 기체가 남습니다</span>
+        <span class="m">완제품 가격 대비</span>
+        <span class="b">부품 재료비 <em>0.8%</em></span>
+        <span class="s">인건비·개발비·인증·마진은 별도입니다</span>
       </p>
 
-      <div class="pr-swarm">
-        <div class="pr-swarm-head"><span>같은 800만 원이면</span><b>13대</b></div>
-        <div class="pr-icons" aria-hidden="true">
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-          <span><svg viewBox="0 0 24 24"><path d="M12 2L22 20L12 16.5L2 20L12 2Z" /></svg></span>
-        </div>
+      <div class="pr-basis">
+        <p><b>금액 산정 기준</b> · 스위치블레이드 300 = FY2023 미 육군 예산 flyaway $52,914 × 1,400원/$ = 74,079,600원. 재료비 비중 = 593,840 ÷ 74,079,600 = 0.80%. (출처: US Army FY2023 예산 · USAspending)</p>
+        <p>개발비 포함 추정 $80,000 기준 0.53%입니다. 개발비는 LMAMS IDIQ 상한 $39,267,040(2011)으로 별도, 인건비는 cost-plus-fixed-fee 계약으로 프로그램별 비공개입니다. 593,840원은 부품 재료비만 포함하며 조립 인건비·개발비·인증·마진·운용지원은 제외합니다.</p>
       </div>
     </div>
 
     <div class="pr-table fade" style="--d:.3s">
-      <div class="pr-th"><span>부품별 단가 구성 · BOM</span><span>단위: 원</span></div>
+      <div class="pr-th"><span>부품별 재료비 구성 · BOM</span><span>단위: 원</span></div>
       <ul>
         <li><span>기체제어기 (F405 WING)</span><b>115,770</b></li>
         <li><span>피토관 센서 (MS4525DO)</span><b>111,700</b></li>
@@ -2111,17 +2212,17 @@
         <li class="kraft"><span>크라프트 골판지 동체</span><b>3,500</b></li>
       </ul>
       <div class="pr-split">
-        <div class="h"><span>단가 구조</span><i>전자·구동부 99.4%</i></div>
+        <div class="h"><span>재료비 구조</span><i>전자·구동부 99.4%</i></div>
         <div class="track"><i class="e"></i><i class="k"></i></div>
         <div class="lg"><span>전자 · 모터 · 배터리 <b>590,340</b></span><span>골판지 동체 <b>3,500</b></span></div>
       </div>
-      <div class="pr-total"><span>기체 1대 합계</span><b>593,840</b></div>
+      <div class="pr-total"><span>기체 1세트 재료비</span><b>593,840</b></div>
     </div>
   </div>
 
   <div class="pr-foot fade" style="--d:.36s">
-    <span><b>비교 조건</b> · 스위치블레이드 300 단가는 약 6,000달러(약 800만 원) 환산값, 13대는 800만 원 ÷ 593,840원 계산값입니다.</span>
-    <span><b>재사용</b> · FC · 모터 · 배터리는 탈부착 모듈이라 기체를 잃어도 회수해 다시 씁니다. 실제 손실은 이보다 작습니다.</span>
+    <span><b>비교 범위</b> · 완제품 가격(flyaway)과 부품 재료비의 비교입니다. 성능·운용 패키지·개발비·인건비는 동일 기준이 아닙니다.</span>
+    <span><b>소모 전제</b> · 자폭 임무에서는 기체와 전장이 함께 소모되므로, 1회 임무당 재료비로 계산했습니다.</span>
   </div>
 </section>
 
@@ -2631,97 +2732,6 @@
   </table>
 </section>
 
-<!-- ===== 12. 전시 부스 전략 ===== -->
-<section class="slide" id="s12" aria-label="전시 부스 전략">
-  <div class="hall-head">
-    <div class="hall-main">
-      <p class="kicker fade" style="--d:.04s">FUTURE PLAN 01 : EXHIBITION BOOTH STRATEGY</p>
-      <h2 class="hall-title fade" style="--d:.1s">향후 전시 계획 : 듀얼 QR 기반 아카이브 패널 구성</h2>
-    </div>
-  </div>
-  <div class="dual">
-    <div class="panel fade" style="--d:.2s">
-      <div class="panel-head">
-        <p class="kicker blue">LEFT QR CODE</p>
-        <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
-          <rect x="3.5" y="3.5" width="14" height="14" rx="1.5" stroke="#1d4e78" stroke-width="3" />
-          <rect x="30.5" y="3.5" width="14" height="14" rx="1.5" stroke="#1d4e78" stroke-width="3" />
-          <rect x="3.5" y="30.5" width="14" height="14" rx="1.5" stroke="#1d4e78" stroke-width="3" />
-          <rect x="30" y="30" width="6.5" height="6.5" fill="#1d4e78" />
-          <rect x="38.5" y="30" width="6.5" height="6.5" fill="#1d4e78" />
-          <rect x="30" y="38.5" width="6.5" height="6.5" fill="#1d4e78" />
-          <rect x="38.5" y="38.5" width="6.5" height="6.5" fill="#1d4e78" />
-        </svg>
-      </div>
-      <h3>웹 아카이브 · 이 발표자료</h3>
-      <ul>
-        <li><b>제작 중:</b> 지금 보고 있는 이 아카이브가 결과물</li>
-        <li><b>모바일 최적화:</b> 관람객 스마트폰 즉시 열람</li>
-        <li><b>1~11호기 상세관:</b> 호기별 파손 사진과 개선 내역</li>
-      </ul>
-    </div>
-    <div class="panel hot fade" style="--d:.3s">
-      <div class="panel-head">
-        <p class="kicker">RIGHT QR CODE</p>
-        <svg viewBox="0 0 52 52" aria-hidden="true">
-          <circle cx="26" cy="26" r="26" fill="#c1440e" />
-          <path d="M21 16.5 36 26l-15 9.5z" fill="#ffffff" />
-        </svg>
-      </div>
-      <h3>1~11호기 전 과정 배속 영상</h3>
-      <ul>
-        <li><b>76회 비행 총집편:</b> 1호기부터 11호기까지 연속 재생</li>
-        <li><b>시행착오 시각화:</b> 추락·모터 사출·활공 성공 비교</li>
-        <li><b>압도적 몰입 증명:</b> 단시간 내 연구 집요함 각인</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ===== 13. 최종 전시물 ===== -->
-<section class="slide" id="s13" aria-label="최종 전시물">
-  <div class="hall-head">
-    <div class="hall-main">
-      <p class="kicker blue fade" style="--d:.04s">FUTURE PLAN 02 : FINAL DELIVERABLES</p>
-      <h2 class="hall-title fade" style="--d:.1s">최종 전시물 제작 및 부스 운영 준비</h2>
-    </div>
-  </div>
-  <div class="deliver-grid">
-    <div class="d-card fade" style="--d:.2s">
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path d="M24 3.5c2.4 0 3.9 2.8 3.9 6.7v8.4l16.6 9.6v4.8l-16.6-5v9.3l5.7 4.3v3.9L24 43.9l-9.6 1.6v-3.9l5.7-4.3v-9.3l-16.6 5V28.2l16.6-9.6V10.2c0-3.9 1.5-6.7 3.9-6.7Z" fill="#c1440e" />
-      </svg>
-      <h3>최종 실물 기체 전시</h3>
-      <p>11호기 실물 및 3D 프린팅 마운트 전시</p>
-    </div>
-    <div class="d-card fade" style="--d:.3s">
-      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <rect x="14" y="4" width="20" height="40" rx="3.5" stroke="#1d4e78" stroke-width="3" />
-        <rect x="21" y="8.5" width="6" height="2.4" rx="1.2" fill="#1d4e78" />
-        <circle cx="24" cy="38.5" r="2.2" fill="#1d4e78" />
-      </svg>
-      <h3>모바일 웹 아카이브 운영</h3>
-      <p>이 발표자료 링크로 호기별 기록 열람</p>
-    </div>
-    <div class="d-card fade" style="--d:.4s">
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="4" y="10" width="40" height="28" rx="3" fill="#c1440e" />
-        <g fill="#fdf3ea">
-          <rect x="8.5" y="14.5" width="6" height="5" rx="1" />
-          <rect x="8.5" y="21.5" width="6" height="5" rx="1" />
-          <rect x="8.5" y="28.5" width="6" height="5" rx="1" />
-          <rect x="33.5" y="14.5" width="6" height="5" rx="1" />
-          <rect x="33.5" y="21.5" width="6" height="5" rx="1" />
-          <rect x="33.5" y="28.5" width="6" height="5" rx="1" />
-        </g>
-        <rect x="18.5" y="14.5" width="11" height="19" rx="1.5" fill="#fdf3ea" />
-      </svg>
-      <h3>76회 비행 배속 편집</h3>
-      <p>1~11호기 추락과 시행착오 과정 하이라이트 영상</p>
-    </div>
-  </div>
-</section>
-
 <!-- ===== 14. 클로징 ===== -->
 <section class="slide closing" id="s14" aria-label="맺음말">
   <p class="kicker fade" style="--d:.06s">15 AIRFRAMES · 76 FLIGHTS · WHAT WE ACTUALLY GOT</p>
@@ -2770,10 +2780,17 @@
 </div>
 
 <div id="hud"><div id="bar"><i></i></div></div>
+<button id="mnext" type="button" aria-label="다음 장으로 이동">
+  <span class="mn-count"><b>01</b><span class="mn-tot"> / 15</span></span>
+  <span class="mn-rail"><i></i></span>
+  <span class="mn-go"><span class="mn-go-t">다음 장</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+  </span>
+</button>
 <div class="ctrl left"><button type="button" id="prevBtn" aria-label="이전 장">← 이전</button></div>
 <div class="ctrl right">
   <button type="button" id="nextBtn" aria-label="다음 장">다음 →</button>
-  <span id="counter">01 / 17</span>
+  <span id="counter">01 / 15</span>
 </div>
 <div class="ctrl mode">
   <button type="button" id="pdfBtn" title="인쇄 창에서 'PDF로 저장'을 고르면 슬라이드 1장이 16:9 페이지 1장으로 저장됩니다 (P)">PDF 저장</button>
@@ -2789,6 +2806,11 @@
   var slides   = Array.prototype.slice.call(document.querySelectorAll('.slide'));
   var total    = slides.length;
   var fill     = document.querySelector('#bar i');
+  var mnext    = document.getElementById('mnext');
+  var mnNow    = mnext.querySelector('.mn-count b');
+  var mnTot    = mnext.querySelector('.mn-tot');
+  var mnFill   = mnext.querySelector('.mn-rail i');
+  var mnGo     = mnext.querySelector('.mn-go-t');
   var counter  = document.getElementById('counter');
   var prevBtn  = document.getElementById('prevBtn');
   var nextBtn  = document.getElementById('nextBtn');
@@ -2822,6 +2844,17 @@
   var forcedMobile = false;               /* PC에서 버튼/M 키로 강제 전환 */
 
   function isMobile() { return forcedMobile || mqMobile.matches; }
+
+  /* 폰 레이아웃의 비례 단위 --m-u 를 실제 화면 폭에 맞춘다.
+     402px(iPhone 17) = 1.0. 좁은 폰(Z Fold 커버 344px)은 0.90,
+     넓은 폰(15 Pro Max 430px)은 1.07로 키워 어떤 기기에서도 같은 비율로 보인다. */
+  function updateMobileUnit() {
+    if (!isMobile()) { root.style.setProperty('--m-u', '1'); return; }
+    if (forcedMobile) { root.style.setProperty('--m-u', '1'); return; }  /* PC 미리보기는 폰 실물 크기 */
+    var vw = window.innerWidth || document.documentElement.clientWidth || 402;
+    var u = Math.max(0.9, Math.min(1.08, vw / 402));
+    root.style.setProperty('--m-u', String(Math.round(u * 1000) / 1000));
+  }
 
   /* 16:9 스테이지를 화면에 맞춰 스케일 (모바일 모드에서는 스케일 없음) */
   function fit() {
@@ -2859,11 +2892,13 @@
   function jumpToSlide(i, instant) {
     if (zoneOf(i) === 1) scrollToSlide(i, instant);
     else if (window.scrollTo) window.scrollTo(0, 0);
+    scheduleCue();
   }
 
   /* 모드 적용 (좁은 화면 자동 / PC 미리보기) */
   function applyMode(anchor) {
     var m = isMobile();
+    updateMobileUnit();
     root.classList.toggle('m', m);
     root.classList.toggle('preview', m && forcedMobile);
     modeBtn.textContent = forcedMobile ? 'PC 보기' : '모바일 보기';
@@ -2884,6 +2919,7 @@
     if (index >= 0) {
       applySteps(index);
       paintAxis(index, prog[slides[index].id]);
+      scheduleCue();
     }
   }
 
@@ -3130,13 +3166,12 @@
   var POS = {
     s1: 0, 's-ovw': 0.03, 's-st3': 0.03, 's-price': 0.03, s2: 0.03,
     s3: 0.10, s4: 0.16, s5: 0.24, s6: 0.34, s7: 0.44,
-    s8: 0.55, s9: 0.64, s10: 0.80, s11: 0.88, s12: 0.93,
-    s13: 0.96, s14: 1
+    s8: 0.55, s9: 0.64, s10: 0.80, s11: 0.88, s14: 1
   };
 
-  /* 표지·과제 개요·보관/단가·요약 장, 그리고 마무리 4장(14~17)에는 지속 시간축을 두지 않는다 */
+  /* 표지·과제 개요·보관/단가·요약 장, 그리고 마무리 장에는 지속 시간축을 두지 않는다 */
   var AXIS_OFF = { s1: 1, 's-ovw': 1, 's-st3': 1, 's-price': 1, s2: 1,
-                   s11: 1, s12: 1, s13: 1, s14: 1 };
+                   s11: 1, s14: 1 };
 
   /* 전시관 슬라이드: 현재까지 도착한 칸 (0-based). 없으면 첫 칸 */
   var prog = {};
@@ -3190,11 +3225,13 @@
 
   /* 모바일: 스크롤 위치를 시간축 채움으로 환산 (페이지 경계에서도 끊기지 않는다) */
   function scrollAxisPos() {
-    var first = null;
+    /* 전시관 장만 대상 — 숨겨진 페이지(z-page)의 rect(0)가 범위를 망치지 않게 */
+    var first = null, last = null;
     slides.forEach(function (s) {
-      if (!first && DETAIL[s.id]) first = s;
+      if (!DETAIL[s.id] || !s.getClientRects().length) return;
+      if (!first) first = s;
+      last = s;
     });
-    var last = slides[slides.length - 1];
     if (!first || !last) return null;
     var top = window.pageYOffset || document.documentElement.scrollTop || 0;
     var a = first.getBoundingClientRect().top + top;
@@ -3282,6 +3319,51 @@
     }
   }
 
+  /* 하단 '다음 장' 표시 갱신 : 현재/전체, 덱 진행률, 다음 장 종류 */
+  function updateNextCue(i) {
+    if (!mnext) return;
+    var nx = slides[i + 1];
+    mnNow.textContent = pad(i + 1);
+    mnTot.textContent = ' / ' + pad(total);
+    mnFill.style.width = (((i + 1) / total) * 100) + '%';
+    mnGo.textContent = !nx ? '마지막 장' : (DETAIL && DETAIL[nx.id] ? '전시관 입장' : '다음 장');
+    root.classList.toggle('at-end', !nx);
+    mnext.setAttribute('aria-label', !nx ? '마지막 장' :
+      pad(i + 2) + '장 ' + (DETAIL && DETAIL[nx.id] ? '전시관으로 이동' : '다음 장으로 이동') +
+      ' · 위로 밀면 이전 장');
+    updateCueState();
+  }
+
+  /* 하단 바 문구/게이트 상태.
+     페이지형 장은 '끝까지 내린 뒤'에만 다음 장으로 바뀌고,
+     아직 끝이 아니면 바가 '↓ 끝까지'를 안내한다. */
+  function updateCueState() {
+    if (!mnext || index < 0 || !slides[index]) return;
+    var page = isMobile() && zoneOf(index) === 0;
+    var hasNext = !!slides[index + 1];
+    var atEnd = page ? pageAtEnd() : false;
+    var gate = page && hasNext && !atEnd;
+    root.classList.toggle('m-gate', gate);
+    root.classList.toggle('page-end', page && hasNext && atEnd);
+    if (!hasNext) {
+      mnGo.textContent = '마지막 장';
+    } else if (gate) {
+      mnGo.textContent = '↓ 끝까지';
+    } else {
+      mnGo.textContent = (DETAIL && DETAIL[slides[index + 1].id]) ? '전시관 입장 →' : '다음 장 →';
+    }
+  }
+
+  /* 새 장은 레이아웃이 한 프레임 늦게 잡히므로, 장 이동 직후 한 번 더 갱신한다 */
+  var cueT1 = 0, cueT2 = 0;
+  function scheduleCue() {
+    updateCueState();
+    window.clearTimeout(cueT1);
+    window.clearTimeout(cueT2);
+    cueT1 = window.setTimeout(updateCueState, 80);
+    cueT2 = window.setTimeout(updateCueState, 280);
+  }
+
   function paint(i, silent) {
     var m = isMobile();
     slides.forEach(function (s, k) {
@@ -3296,9 +3378,11 @@
     paintAxis(i, prog[slides[i].id]);
     counter.textContent = pad(i + 1) + ' / ' + pad(total);
     fill.style.width = (((i + 1) / total) * 100) + '%';
+    updateNextCue(i);
     prevBtn.disabled = i === 0;
     nextBtn.disabled = i === total - 1;
-    if (!silent) {
+    if (!silent && !isMobile()) {
+      /* 폰은 스크롤로 장이 바뀌므로 URL 해시를 계속 덮어쓰지 않는다 (뒤로가기·딥링크 보존) */
       try { history.replaceState(null, '', '#' + (i + 1)); } catch (err) {}
     }
   }
@@ -3313,6 +3397,11 @@
       if (prog[s.id] == null) prog[s.id] = 0;
     }
     paint(i, silent);
+    /* 이전 장으로 돌아갈 때는 위에서 내려오는 애니메이션으로 방향을 보여 준다 */
+    if (s) {
+      if (isMobile() && zoneOf(i) === 0) s.classList.toggle('mpg-back', dir < 0);
+      else s.classList.remove('mpg-back');
+    }
     /* 구역이 바뀌면(페이지 ↔ 전시관) 중간 스크롤을 건너뛰고 바로 이동 */
     if (isMobile()) jumpToSlide(i, instant || prevZone !== zoneOf(i));
   }
@@ -3329,6 +3418,7 @@
     });
     if (best >= 0 && best !== index) paint(best, true);
     else paintAxis(index, prog[slides[index].id]);
+    updateCueState();                   /* 끝까지 내렸는지에 따라 '↓ 끝까지' ↔ '다음 장' */
   }
   window.addEventListener('scroll', function () {
     if (!isMobile()) return;
@@ -3489,8 +3579,59 @@
     return false;
   }
 
+  /* 폰 : 현재 페이지형 장에서 스크롤할 수 있는 마지막 위치 */
+  function pageEndY() {
+    var el = slides[index];
+    if (!el) return null;
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var top = el.getBoundingClientRect().top + y;
+    var end = Math.max(0, top + el.offsetHeight - (window.innerHeight || 0));
+    /* 실제 문서가 스크롤할 수 있는 끝보다 멀리 가지 않게 보정 */
+    var doc = document.scrollingElement || document.documentElement;
+    var max = Math.max(0, (doc ? doc.scrollHeight : 0) - (window.innerHeight || 0));
+    return Math.min(end, max);
+  }
+
+  function pageAtEnd() {
+    var endY = pageEndY();
+    if (endY == null) return true;
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    return endY - y <= 8;
+  }
+
+  /* 다음 장으로 가기 전에 현재 장을 끝까지 내리는 동작.
+     여기서는 절대 다음 장으로 넘어가지 않는다 — 한 번 더 눌러야 넘어간다. */
+  function scrollPageToEnd() {
+    var endY = pageEndY();
+    if (endY == null) return;
+    locked = true;
+    window.setTimeout(function () { locked = false; }, 420);
+    try { window.scrollTo({ top: endY, behavior: 'smooth' }); }
+    catch (err) { window.scrollTo(0, endY); }
+    updateCueState();
+    window.setTimeout(function () {
+      if (!pageAtEnd()) {
+        try { window.scrollTo(0, endY); } catch (err) {}
+        updateCueState();
+      }
+    }, 480);
+  }
+
   function go(dir) {
     if (locked) return;
+    /* 폰 페이지형 장 : 다음 장은 현재 장을 '끝까지 내린 뒤'에만 넘어간다.
+       끝이 아니면 다음 장으로 가지 않고 끝까지 스크롤만 한다. */
+    if (dir > 0 && isMobile() && !zoomOpen && index >= 0 &&
+        zoneOf(index) === 0 && !pageAtEnd()) {
+      scrollPageToEnd();
+      return;
+    }
+    step(dir);
+  }
+
+  /* 한 장 넘기기 — 페이지 하단 선행 스크롤 없이 바로 다음 장으로.
+     연달아 여러 장이 넘어가지 않도록 짧게 잠근다. */
+  function step(dir) {
     locked = true;
     window.setTimeout(function () { locked = false; }, 260);
     if (advanceStep(dir)) return;
@@ -3541,9 +3682,12 @@
     if (zoomOpen) return;
     if (isMobile()) {
       /* 모바일: 타임라인이 있는 장은 탭으로 넘기지 않고(스크롤로 연속 열람),
-         그 외 장(표지·요약 등)은 탭하면 다음 장으로 */
-      if (e.target.closest('a') || e.target.closest('.ctrl')) return;
+         그 외 장(표지·요약 등)은 '화면 아래쪽'을 탭했을 때 다음 장으로.
+         긴 장은 go()가 먼저 끝까지 내리고, 그 다음 탭에서 넘어간다. */
+      if (e.target.closest('a') || e.target.closest('.ctrl') ||
+          e.target.closest('button') || e.target.closest('[role="button"]')) return;
       if (colsOf(index).length) return;
+      if (e.clientY < (window.innerHeight || 0) * 0.68) return;
       hideHint();
       go(1);
       return;
@@ -3569,6 +3713,29 @@
   });
   nextBtn.addEventListener('click', function (e) {
     e.stopPropagation();
+    hideHint();
+    go(1);
+  });
+  /* 하단 진행 표시(폰 페이지형 장) : 눌러서 다음 장, 위로 밀면 이전 장 */
+  var mnY0 = 0, mnT0 = 0, mnSwiped = false;
+  mnext.addEventListener('pointerdown', function (e) {
+    mnY0 = e.clientY; mnT0 = Date.now();
+    e.stopPropagation();
+  }, { passive: true });
+  mnext.addEventListener('pointerup', function (e) {
+    e.stopPropagation();
+    var dy = e.clientY - mnY0;
+    if (Math.abs(dy) > 26 && Date.now() - mnT0 < 800) {
+      mnSwiped = true;
+      window.setTimeout(function () { mnSwiped = false; }, 450);
+      hideHint();
+      if (dy < 0) go(-1);              /* 위로 밀면 이전 장 */
+    }
+  }, { passive: true });
+  mnext.addEventListener('pointercancel', function () { mnSwiped = false; }, { passive: true });
+  mnext.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (mnSwiped) { mnSwiped = false; return; }
     hideHint();
     go(1);
   });
@@ -3628,18 +3795,23 @@
     }
   }
 
-  /* 터치 스와이프 (좌: 다음 / 우: 이전) */
+  /* 가로 스와이프 (좌: 다음 / 우: 이전)
+     - 마우스(PC 미리보기)는 pointer 이벤트로
+     - 실제 폰 터치는 아래 touch 이벤트에서 처리한다 (중복 이동 방지) */
   var sx = 0, sy = 0, st = 0, tracking = false;
 
   document.addEventListener('pointerdown', function (e) {
-    if (zoomOpen || e.target.closest('.ctrl') || e.target.closest('a')) { tracking = false; return; }
+    if (e.pointerType === 'touch' || zoomOpen ||
+        (e.target.closest && (e.target.closest('.ctrl') || e.target.closest('a') || e.target.closest('#mnext')))) {
+      tracking = false; return;
+    }
     /* 폰에서는 페이지형 장에서만 가로 스와이프로 앞/뒤 페이지를 넘긴다 */
     if (isMobile() && zoneOf(index) !== 0) { tracking = false; return; }
     sx = e.clientX; sy = e.clientY; st = Date.now(); tracking = true;
   }, { passive: true });
 
   document.addEventListener('pointerup', function (e) {
-    if (!tracking) return;
+    if (e.pointerType === 'touch' || !tracking) return;
     tracking = false;
     var dx = e.clientX - sx;
     var dy = e.clientY - sy;
@@ -3652,11 +3824,14 @@
     }
   }, { passive: true });
 
-  /* 모바일: 장의 마지막(맨 아래)까지 드래그한 뒤 계속 더 밀면 다음 페이지,
-     맨 위에서 더 밀어 내리면 이전 페이지로 넘어간다.
-     → 전시관 스크롤 구역은 물론, 내용이 길어 스크롤이 필요한 페이지형 장
-       (예: 기술 요약 매트릭스)도 끝까지 읽은 뒤 이어서 밀면 자연스럽게 넘어간다. */
-  var tY = 0, tX = 0, tOn = false, tLast = 0, tOver = 0, tDir = 0, tNav = false;
+  document.addEventListener('pointercancel', function () { tracking = false; }, { passive: true });
+
+  /* 모바일 터치 제스처
+     · 페이지형 장 : 맨 아래에서 더 위로 = 이전 장, 맨 위에서 더 아래로 = 이전 장(첫 장이면 그대로)
+     · 전시관 장 : 맨 아래에서 더 위로 = 다음 장, 맨 위에서 더 아래로 = 이전 장
+     · 좌우로 밀기 : 왼쪽 = 다음(끝까지 내린 뒤), 오른쪽 = 이전 */
+  var tY = 0, tX0 = 0, tOn = false, tLast = 0, tOver = 0, tDir = 0, tNav = false;
+  var tHoriz = false, tMoveX = 0, tStart = 0, tHorizOK = false, tDone = false;
   var OVER_LIMIT = 68;                        /* 경계를 넘겨 더 민 거리(px) */
 
   function scrollMaxY() {
@@ -3667,40 +3842,54 @@
   function leaveZone(dir) {
     /* 더 넘어갈 장이 없으면 아무 것도 하지 않는다 */
     if (dir > 0 ? index >= total - 1 : index <= 0) { tOver = 0; tDir = 0; return; }
-    tOn = false; tOver = 0; tDir = 0; tNav = true;
+    tOver = 0; tDir = 0; tNav = true; tDone = true;
     hideHint();
     go(dir);
   }
 
   document.addEventListener('touchstart', function (e) {
     if (!isMobile() || zoomOpen || e.touches.length !== 1 ||
-        (e.target.closest && (e.target.closest('.ctrl') || e.target.closest('[data-goto]')))) {
+        (e.target.closest && (e.target.closest('.ctrl') || e.target.closest('[data-goto]') ||
+          e.target.closest('a') || e.target.closest('button') || e.target.closest('#mnext')))) {
       tOn = false; return;
     }
     tY = tLast = e.touches[0].clientY;
-    tX = e.touches[0].clientX;
-    tOver = 0; tDir = 0;
+    tX0 = e.touches[0].clientX;
+    tStart = Date.now();
+    tHoriz = false; tMoveX = 0;
+    tHorizOK = zoneOf(index) === 0;
+    tOver = 0; tDir = 0; tNav = false; tDone = false;
     tOn = true;
   }, { passive: true });
 
   /* 경계('맨 아래'/'맨 위')에 닿은 뒤 같은 방향으로 더 움직인 거리만 누적한다 */
   document.addEventListener('touchmove', function (e) {
-    if (!tOn) return;
+    if (!tOn || tDone) return;
     var t = e.touches && e.touches[0];
     if (!t) return;
     var y = t.clientY;
+    var dy = y - tY;
+    var dx = t.clientX - tX0;
     var d = y - tLast;                        /* 이번 이동량 (위로 밀면 음수) */
     tLast = y;
+    /* 가로로 더 많이 움직였으면 좌우 스와이프로 기록 (전시관에서는 넘기지 않고 click만 막는다) */
+    if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      tHoriz = true; tMoveX = dx;
+      tOver = 0; tDir = 0; return;
+    }
+    if (tHoriz) return;
     if (Math.abs(d) < 0.6) return;
-    /* 가로로 더 많이 움직였으면 페이지 스와이프(pointer 처리)에 맡긴다 */
-    if (Math.abs(t.clientX - tX) > Math.abs(y - tY) * 1.4) { tOver = 0; tDir = 0; return; }
     var s = window.pageYOffset || document.documentElement.scrollTop || 0;
     var max = scrollMaxY();
     if (s < 0) s = 0; else if (s > max) s = max;
+    var page = zoneOf(index) === 0;
     if (d < 0 && s >= max - 1) {              /* 끝에 닿은 뒤 더 밀어 올림 */
-      tOver = (tDir > 0 ? tOver : 0) - d; tDir = 1;
+      var upDir = page ? -1 : 1;              /* 페이지형은 이전, 전시관은 다음 */
+      tOver = (tDir === upDir ? tOver : 0) - d; tDir = upDir;
     } else if (d > 0 && s <= 1) {             /* 처음에 닿은 뒤 더 밀어 내림 */
-      tOver = (tDir < 0 ? tOver : 0) + d; tDir = -1;
+      /* 맨 위에서 아래로 미는 것은 이전 장 (첫 장이면 그대로) */
+      var downDir = -1;
+      tOver = (tDir === downDir ? tOver : 0) + d; tDir = downDir;
     } else {
       tOver = 0; tDir = 0;
     }
@@ -3708,13 +3897,25 @@
   }, { passive: true });
 
   document.addEventListener('touchend', function () {
-    /* 드래그로 이미 넘어갔으면 뒤따르는 tap(다음 장)을 한 번 무시한다 */
-    if (tNav) {
+    if (!tOn) return;
+    var dt = Date.now() - tStart;
+    /* 가로 스와이프 : 페이지형 장에서만 왼쪽 = 다음, 오른쪽 = 이전 (짧은 실수는 무시) */
+    if (tHorizOK && tHoriz && Math.abs(tMoveX) > 60 && dt < 900) {
+      tNav = true;
+      hideHint();
+      go(tMoveX < 0 ? 1 : -1);
+    }
+    /* 스크롤·스와이프 뒤 따라오는 click(다음 장)을 한 번 무시한다 */
+    if (tNav || tHoriz || Math.abs(tLast - tY) > 12) {
       tNav = false;
       suppressClick = true;
       window.setTimeout(function () { suppressClick = false; }, 400);
     }
-    tOn = false; tOver = 0; tDir = 0;
+    tOn = false; tOver = 0; tDir = 0; tHoriz = false; tDone = false;
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', function () {
+    tOn = false; tOver = 0; tDir = 0; tHoriz = false; tDone = false;
   }, { passive: true });
 
   /* 시작 위치 (URL 해시 지원) */
