@@ -1902,11 +1902,14 @@
       z-index:120;
       display:flex;
       align-items:stretch;
-      justify-content:stretch;
+      justify-content:flex-start;
       padding:0;
+      /* 폰마다 다른 화면 높이와 브라우저 UI 변화를 그대로 따라간다 */
+      height:100dvh;
     }
     html.m .zoom-card{
       width:100%;
+      max-width:none;
       height:100%;
       display:block;
       overflow-y:auto;
